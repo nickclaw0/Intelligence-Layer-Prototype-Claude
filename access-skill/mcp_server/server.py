@@ -18,9 +18,11 @@ Tools exposed (all read-only):
     get_schema, read_index, read_page, search_wiki,
     list_sources, resolve_source, read_raw
 """
-import sys, os, json, glob, re
+import sys, os, json, glob, re, importlib.util
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.realpath(os.path.join(HERE, "..", ".."))
+OUTPUT_DIR = os.path.realpath(os.environ.get("OUTPUT_DIR", os.path.expanduser("~/Desktop")))
 WIKI_DIR = os.path.realpath(os.environ.get("WIKI_DIR", os.path.join(HERE, "..", "..", "wiki")))
 RAW_MANIFEST = os.environ.get(
     "RAW_MANIFEST",
@@ -124,6 +126,48 @@ def t_read_raw(args):
             f"Use a document-extraction step to read its contents.")
 
 
+def _load_module(rel_path, name):
+    spec = importlib.util.spec_from_file_location(name, os.path.join(REPO_ROOT, rel_path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _safe_out(name, ext):
+    base = os.path.basename(name or "")
+    base = re.sub(r"[^A-Za-z0-9._ -]", "_", base) or ("velorixa_output" + ext)
+    if not base.lower().endswith(ext):
+        base += ext
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    return os.path.join(OUTPUT_DIR, base)
+
+
+def t_generate_deck(args):
+    spec = args.get("spec") or {}
+    if isinstance(spec, str):
+        spec = json.loads(spec)
+    out = _safe_out(args.get("output_name", "velorixa_deck"), ".pptx")
+    try:
+        mod = _load_module("wiki/skills/generate-avalere-pptx/build_deck.py", "build_deck")
+    except Exception as e:
+        return f"deck engine unavailable: {e}. The generate tools need python-pptx installed for this interpreter."
+    path, n = mod.build(spec, mod.DEFAULT_TEMPLATE, out)
+    return f"Created deck: {path} ({n} slides) in the Avalere template. Open it from there."
+
+
+def t_generate_doc(args):
+    spec = args.get("spec") or {}
+    if isinstance(spec, str):
+        spec = json.loads(spec)
+    out = _safe_out(args.get("output_name", "velorixa_doc"), ".docx")
+    try:
+        mod = _load_module("wiki/skills/generate-avalere-docx/build_doc.py", "build_doc")
+    except Exception as e:
+        return f"doc engine unavailable: {e}. The generate tools need python-docx installed for this interpreter."
+    path, n = mod.build(spec, mod.DEFAULT_TEMPLATE, out)
+    return f"Created document: {path} ({n} blocks) in the Avalere template. Open it from there."
+
+
 TOOLS = [
     {"name": "get_schema", "description": "Read CLAUDE.md, the maintainer schema and query rules. Read this first.",
      "inputSchema": {"type": "object", "properties": {}}, "fn": t_get_schema},
@@ -139,6 +183,21 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}, "fn": t_resolve_source},
     {"name": "read_raw", "description": "Follow a source id into the raw original (cascade drop-to-raw). Tenant-scoped.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}, "fn": t_read_raw},
+    {"name": "generate_deck",
+     "description": "Build an on-brand Avalere PowerPoint from wiki content and save it (default ~/Desktop). "
+                    "spec: {title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}. "
+                    "layout is an Avalere layout name (read skills/generate-avalere-pptx/SKILL for families). Cite every claim.",
+     "inputSchema": {"type": "object", "properties": {
+         "spec": {"type": "object", "description": "Deck spec with a slides list."},
+         "output_name": {"type": "string", "description": "Output filename, saved to the output folder."}},
+         "required": ["spec"]}, "fn": t_generate_deck},
+    {"name": "generate_doc",
+     "description": "Build an on-brand Avalere Word document from wiki content and save it (default ~/Desktop). "
+                    "spec: {blocks:[{style, text, citations?}]}. style is a named style (Title, Heading 1, Normal, List Bullet, ...). Cite every claim.",
+     "inputSchema": {"type": "object", "properties": {
+         "spec": {"type": "object", "description": "Document spec with a blocks list."},
+         "output_name": {"type": "string", "description": "Output filename, saved to the output folder."}},
+         "required": ["spec"]}, "fn": t_generate_doc},
 ]
 TOOL_BY_NAME = {t["name"]: t for t in TOOLS}
 

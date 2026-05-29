@@ -10,8 +10,12 @@ required_tools:
   - search_wiki
   - resolve_source
   - read_raw
+  - generate_deck
+  - generate_doc
 outputs:
   - cited_answer
+  - deck.pptx
+  - document.docx
 sensitivity: inherits_from_wiki
 client: velorixa
 ---
@@ -25,8 +29,17 @@ The installable access skill. It lets anyone query the Velorixa Intelligence Lay
 3. **Identify candidate pages** (entity, concept, project, synthesis, source) from the index and from `search_wiki`, and read them with `read_page`.
 4. **If the wiki fully supports the answer, respond with citations** and stop. Cite every claim with its source id, the same `[src:id]` ids the pages carry.
 5. **If a cited claim needs more depth than the wiki holds**, follow its source id into raw: `resolve_source` to find the file, then `read_raw` to read the original, and integrate.
-6. **If the query maps to a skill** (see the Skills section of the index), invoke that skill rather than answering free-hand.
-7. **If the answer is non-trivial and likely reusable**, propose filing it back as a synthesis page (the maintainer commits it; this skill is read-only).
+6. **If the query maps to a skill** (see the Skills section of the index), invoke that skill rather than answering free-hand. To produce a deliverable, gather the cited content from the wiki first, then call `generate_deck` (Avalere PowerPoint) or `generate_doc` (Avalere Word). Pass a spec whose every claim carries a source id, and a sensible `output_name`. The file is saved to the output folder (default the Desktop) and the tool returns its path.
+7. **If the answer is non-trivial and likely reusable**, propose filing it back as a synthesis page (the maintainer commits wiki changes; this skill does not edit the wiki, though it does produce deliverable files on request).
+
+## Producing a deck or document
+
+When the user asks for a deck or document: run the cascade to gather the content and its citations, draft a spec, then call the matching generate tool.
+
+- `generate_deck` spec: `{title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}`. `layout` is an Avalere layout name; read `skills/generate-avalere-pptx/SKILL` for the families.
+- `generate_doc` spec: `{blocks:[{style, text, citations?}]}`. `style` is a named style (Title, Subtitle, Heading 1 to 5, Normal, List Bullet, ...).
+
+Every factual claim in the deliverable must cite a source id. The output inherits the sensitivity of the sources it draws on.
 
 ## Hard rules
 

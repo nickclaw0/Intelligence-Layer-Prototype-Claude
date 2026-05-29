@@ -13,6 +13,8 @@ The bridge that lets a Claude client query the Velorixa Intelligence Layer. It i
 | `list_sources` | List raw sources from the manifest. |
 | `resolve_source` | Resolve a cited `src:id` to its raw file metadata. |
 | `read_raw` | Follow a source id into the raw original (drop-to-raw). Refuses cross-tenant. |
+| `generate_deck` | Build an on-brand Avalere `.pptx` from a spec; saves to the output folder. |
+| `generate_doc` | Build an on-brand Avalere `.docx` from a spec; saves to the output folder. |
 
 ## Environment
 
@@ -21,6 +23,9 @@ The bridge that lets a Claude client query the Velorixa Intelligence Layer. It i
 | `WIKI_DIR` | `../../wiki` relative to the server |
 | `RAW_MANIFEST` | the Drive `raw/_manifest.json` |
 | `TENANT` | `velorixa` |
+| `OUTPUT_DIR` | `~/Desktop` (where generated decks/docs are saved) |
+
+The `generate_deck` and `generate_doc` tools run the Phase 4 build engines in-process, so the interpreter that launches the server needs `python-pptx` and `python-docx` available (installed for `/usr/bin/python3` via `pip install --user`).
 
 ## Connect it to Claude Desktop
 
