@@ -19,3 +19,7 @@ build/
 
 # Lint runtime state (per-environment; the daily routine persists its own)
 lint/.lint_state.json
+
+# Viewer build artifact: generated from the wiki by viewer/build_viewer.py.
+# Regenerable, and inlines confidential wiki content, so keep it out of git.
+viewer/worker.js

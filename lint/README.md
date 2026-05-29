@@ -33,3 +33,25 @@ See `routine.md` for the once-a-day Claude routine definition. Activate it with 
 ## Scope boundary
 
 The daily job stays cheap and additive. The monthly-grade work (a full orphan sweep across the whole wiki, stale-claim review, and an index health check) is a separate, less frequent routine and is deliberately not part of this daily job.
+
+## Full sweep
+
+`full_sweep.py` is that monthly-grade routine. Unlike the daily job it reads the
+whole wiki, not just what changed, and it is read-only (it never creates stubs
+or edits pages):
+
+- Broken citations across every page (`^[src:<id>]` must resolve to a manifest
+  id or short_ref). Citations shown inside `inline code` are treated as format
+  examples and ignored.
+- Orphan pages with no inbound WikiLink (skill sub-pages are reached via their
+  sibling `SKILL`).
+- Index health: every content page is listed in the index, and every index
+  WikiLink resolves to a real file.
+- Stale review: pages whose `last_updated` is older than 180 days (warning only).
+
+```
+python3 lint/full_sweep.py --manifest "/path/to/raw/_manifest.json"
+```
+
+Exits 2 on a hard problem (broken citation, missing index entry, dangling index
+link); warnings alone exit 0.

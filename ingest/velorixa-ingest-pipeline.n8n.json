@@ -1,0 +1,438 @@
+{
+  "name": "Velorixa Intelligence Layer_Ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "event": "fileCreated",
+        "triggerOn": "specificFolder",
+        "folderToWatch": {
+          "__rl": true,
+          "mode": "list",
+          "value": "REPLACE_WITH_INGEST_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "id": "drive-ingest-trigger",
+      "name": "Drive Ingest Trigger",
+      "type": "n8n-nodes-base.googleDriveTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "options": {}
+      },
+      "id": "download-ingested-file",
+      "name": "Download Ingested File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise one ingested Drive file into a canonical raw entry.\n// Input: the Google Drive file metadata (name, id, size) + downloaded binary.\nconst crypto = require('crypto');\n\nconst meta = $input.first().json;\nconst bin = $input.first().binary && $input.first().binary.data;\nconst originalName = meta.name || meta.originalFilename || 'unknown';\nconst driveFileId = meta.id || '';\nconst sizeBytes = Number(meta.size || (bin && bin.fileSize) || 0);\n\n// Content hash over the downloaded bytes (Phase 3 keeps content-hash as the\n// canonical id until Drive file IDs are reconciled in; see manifest notes).\nlet buf = Buffer.from('');\nif (bin && bin.data) { buf = Buffer.from(bin.data, 'base64'); }\nconst sha = crypto.createHash('sha256').update(buf).digest('hex');\nconst shortRef = sha.slice(0, 8);\n\n// Tenant defaults for this single-tenant prototype.\nconst client = 'velorixa';\nconst therapeuticArea = 'insomnia';\nconst project = 'launch-prep';\n\n// Expected convention: YYYY-MM-DD_VLX_<type>_<slug>_vN.ext\n// If the file does not match, route it to manual review rather than guessing.\nconst NAME_RE = /^(\\d{4}-\\d{2}-\\d{2})_([A-Z0-9]+)_([a-z-]+)_(.+)_v(\\d+)\\.(\\w+)$/;\nconst m = originalName.match(NAME_RE);\n\nlet supported = false;\nlet sourceType = 'unknown';\nlet ext = (originalName.split('.').pop() || '').toLowerCase();\nconst SUPPORTED_EXT = ['txt','md','pdf','docx','doc','pptx','ppt','xlsx','xls','csv','json'];\nif (m) {\n  sourceType = m[3];\n  ext = m[6].toLowerCase();\n  supported = SUPPORTED_EXT.includes(ext);\n}\n\nconst currentPath = `raw/${client}/${therapeuticArea}/${project}/${sourceType}/${originalName}`;\n\nconst entry = {\n  id: sha,                       // content-hash for now (id_type below)\n  id_type: 'content-hash',\n  short_ref: shortRef,\n  current_path: currentPath,\n  content_hash: `sha256:${sha}`,\n  original_filename: originalName,\n  client,\n  therapeutic_area: therapeuticArea,\n  project,\n  source_type: sourceType,\n  classification: 'client-confidential',   // default high; reviewer may downgrade\n  size_bytes: sizeBytes,\n  drive_file_id: driveFileId,              // captured for Phase 3 reconciliation\n  ingest_history: [{\n    event: 'n8n-ingest',\n    timestamp: new Date().toISOString(),\n    actor: 'n8n-ingest-pipeline',\n    from: `Ingest/${originalName}`,\n    version: m ? Number(m[5]) : 1,\n    note: 'Auto-ingested from Drive Ingest/ folder.'\n  }]\n};\n\nreturn [{ json: { supported, naming_ok: !!m, entry, sha, shortRef, currentPath, originalName } }];"
+      },
+      "id": "normalize-and-hash",
+      "name": "Normalize And Hash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.supported }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.naming_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-supported-and-named",
+      "name": "IF Supported And Named",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_MANIFEST_FILE_ID"
+        },
+        "options": {}
+      },
+      "id": "read-manifest",
+      "name": "Read Manifest",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        -120
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "move",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Drive Ingest Trigger').item.json.id }}"
+        },
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_RAW_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "id": "move-file-into-raw",
+      "name": "Move File Into Raw",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        120
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge the new entry into the existing manifest, deduping by content hash.\n// Inputs: item 0 = normalised entry (from \"Normalize And Hash\"),\n//         item 1 = current _manifest.json contents (from \"Read Manifest\").\nconst normalized = $('Normalize And Hash').first().json;\nconst manifestRaw = $('Read Manifest').first().json;\n\nlet manifest;\ntry {\n  manifest = typeof manifestRaw.data === 'string'\n    ? JSON.parse(manifestRaw.data)\n    : (manifestRaw.text ? JSON.parse(manifestRaw.text) : manifestRaw);\n} catch (e) {\n  manifest = { manifest_version: 1, sources: [] };\n}\nmanifest.sources = manifest.sources || [];\n\nconst exists = manifest.sources.some(s => s.id === normalized.entry.id\n  || s.content_hash === normalized.entry.content_hash);\n\nlet action = 'appended';\nif (exists) {\n  action = 'duplicate';\n} else {\n  manifest.sources.push(normalized.entry);\n  manifest.last_updated = new Date().toISOString();\n}\n\nreturn [{ json: {\n  action,\n  is_new: !exists,\n  manifest_json: JSON.stringify(manifest, null, 2),\n  short_ref: normalized.shortRef\n} }];"
+      },
+      "id": "update-manifest",
+      "name": "Update Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_new }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-new-source",
+      "name": "IF New Source",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1320,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REPLACE_WITH_MANIFEST_FILE_ID"
+        },
+        "changeFileContent": true,
+        "newUpdatedContent": "={{ $json.manifest_json }}",
+        "options": {}
+      },
+      "id": "write-manifest-to-drive",
+      "name": "Write Manifest To Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1540,
+        -200
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/nickclaw0/Intelligence-Layer-Prototype-Claude/dispatches",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REPLACE_WITH_GITHUB_PAT"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "User-Agent",
+              "value": "velorixa-ingest"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event_type: 'raw-ingested', client_payload: { short_ref: $json.short_ref } }) }}",
+        "options": {}
+      },
+      "id": "trigger-daily-lint",
+      "name": "Trigger Daily Lint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -200
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "duplicate-source-skipped",
+      "name": "Duplicate Source Skipped",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a review record for files that do not match the naming convention or\n// are an unsupported type. Surfaced, never silently dropped.\nconst n = $('Normalize And Hash').first().json;\nreturn [{ json: {\n  status: 'needs-review',\n  reason: !n.naming_ok ? 'filename does not match YYYY-MM-DD_VLX_<type>_<slug>_vN.ext'\n                       : 'unsupported file type',\n  original_filename: n.originalName\n} }];"
+      },
+      "id": "build-review-record",
+      "name": "Build Review Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        320
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "log-review-for-human",
+      "name": "Log Review For Human",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Drive Ingest Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download Ingested File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Ingested File": {
+      "main": [
+        [
+          {
+            "node": "Normalize And Hash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize And Hash": {
+      "main": [
+        [
+          {
+            "node": "IF Supported And Named",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Supported And Named": {
+      "main": [
+        [
+          {
+            "node": "Read Manifest",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Move File Into Raw",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Review Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Manifest": {
+      "main": [
+        [
+          {
+            "node": "Update Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Manifest": {
+      "main": [
+        [
+          {
+            "node": "IF New Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF New Source": {
+      "main": [
+        [
+          {
+            "node": "Write Manifest To Drive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Duplicate Source Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Manifest To Drive": {
+      "main": [
+        [
+          {
+            "node": "Trigger Daily Lint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Record": {
+      "main": [
+        [
+          {
+            "node": "Log Review For Human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": []
+}
