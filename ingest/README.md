@@ -10,6 +10,12 @@ so the new source folds into the wiki.
 
 - [`velorixa-ingest-pipeline.n8n.json`](velorixa-ingest-pipeline.n8n.json) — import-ready n8n workflow.
 - [`build_ingest_workflow.py`](build_ingest_workflow.py) — node-free generator that produces the JSON. Edit logic here and regenerate; do not hand-edit the JSON.
+- [`file_seed_batch.py`](file_seed_batch.py) — one-shot bootstrap that does, locally, what the n8n workflow does going forward: classify the loose by-type seed files in `Ingest/` (`Internal PPTs/`, `Meeting transcripts/`, `Scientific literature/`), hash them, copy them into the `raw/...` tree with `.meta.json` sidecars, and append manifest entries. Idempotent (skips content-hash duplicates) and non-destructive (copies; never moves or overwrites raw). This is the human-confirmed classification step the raw ingest routing calls for. Run `--apply` to write; without it, dry-run.
+
+```
+python3 ingest/file_seed_batch.py --drive "<prototype root>"          # dry run
+python3 ingest/file_seed_batch.py --drive "<prototype root>" --apply  # file it
+```
 
 ## What the workflow does
 

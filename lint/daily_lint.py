@@ -22,7 +22,7 @@ Usage:
 The monthly-grade work (full orphan sweep, stale-claim review, index health
 check) is a separate, less frequent routine. This daily job stays cheap and additive.
 """
-import sys, os, json, re, argparse, datetime, glob
+import sys, os, json, re, argparse, datetime, glob, subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, ".."))
@@ -236,6 +236,34 @@ def next_log_ref():
     return f"log:{now_utc().strftime('%Y-%m-%d')}-lint"
 
 
+# ---------- viewer sync ----------
+
+def maybe_redeploy_viewer():
+    """Keep the live viewer in sync with the wiki after a run that changed it.
+
+    Opt-in: only runs when VIEWER_AUTODEPLOY is truthy and CF_API_TOKEN is set,
+    so the lint stays usable in environments without Cloudflare access. The
+    actual deploy (rebuild worker.js + PUT) lives in viewer/deploy_viewer.py,
+    which preserves the auth secrets via inherit bindings and reads the token
+    from the env. A deploy failure is reported but never fails the lint."""
+    if os.environ.get("VIEWER_AUTODEPLOY", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return None
+    if not os.environ.get("CF_API_TOKEN"):
+        return "viewer auto-deploy skipped (CF_API_TOKEN not set)"
+    script = os.path.join(REPO, "viewer", "deploy_viewer.py")
+    if not os.path.exists(script):
+        return "viewer auto-deploy skipped (deploy_viewer.py missing)"
+    try:
+        r = subprocess.run([sys.executable, script],
+                           capture_output=True, text=True, timeout=180)
+    except Exception as e:  # noqa: BLE001 - never let a deploy break the lint
+        return f"viewer redeploy errored: {e}"
+    if r.returncode == 0:
+        return "viewer redeployed"
+    tail = (r.stderr or r.stdout).strip().splitlines()
+    return f"viewer redeploy failed: {tail[-1] if tail else 'unknown error'}"
+
+
 # ---------- main ----------
 
 def run(manifest_path):
@@ -288,6 +316,9 @@ def run(manifest_path):
         bits.append(f"BROKEN CITATIONS: {', '.join(problems['broken_citations'])}")
     if orph:
         bits.append(f"orphans for review: {', '.join(problems['orphans'])}")
+    viewer_note = maybe_redeploy_viewer()
+    if viewer_note:
+        bits.append(viewer_note)
     summary = "; ".join(bits) if bits else "changes detected, no actions"
     append_log(summary)
     save_state(state)

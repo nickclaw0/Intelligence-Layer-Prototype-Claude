@@ -43,6 +43,26 @@ Redeploy after editing the wiki:
 1. `python3 viewer/build_viewer.py`
 2. `PUT /accounts/{account_id}/workers/scripts/intelligence-layer-prototype-claude` with `worker.js` as the module and the `VIEWER_USER` / `VIEWER_PASS` secret_text bindings.
 
+Or do both in one step with the deploy helper, which preserves the secrets via
+`inherit` bindings (so it never needs their values) and reads the API token from
+the environment:
+
+```
+CF_API_TOKEN=<token> python3 viewer/deploy_viewer.py
+```
+
+## Staying in sync with the wiki
+
+The viewer is a static bake — it does not read the wiki at request time (no Node,
+and the wiki lives in a private repo the Worker cannot reach). So "the graph
+always reflects the wiki" means rebuild + redeploy whenever the wiki changes.
+`viewer/deploy_viewer.py` is the node-free rebuild-and-PUT used for that, and the
+daily lint (`lint/daily_lint.py`) calls it automatically after any run that
+changed the wiki, gated on `VIEWER_AUTODEPLOY` + `CF_API_TOKEN` (see
+`lint/routine.md`). A deploy failure is reported in the lint log line but never
+fails the lint. The end-to-end chain is: Drive ingest -> daily lint folds new
+sources -> viewer redeploys.
+
 The custom domain is `intelligence-layer.nateclaw.com`. The first-choice
 hostname `intelligence.nateclaw.com` already had an externally-managed DNS
 record, so rather than repoint or overwrite it the viewer was attached on a

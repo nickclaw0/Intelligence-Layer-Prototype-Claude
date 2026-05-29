@@ -12,6 +12,7 @@ It must not rewrite the wiki. It is a diff against state, not a sweep. The manif
 2. For only the new or changed source ids: ensure a source page exists (create a `needs-synthesis` stub if the maintainer has not authored one yet), and ensure a one-line entry exists in the index Sources section.
 3. Run the schema's lint checks over the affected neighbourhood only: broken citations (a cited id missing from the manifest), orphan pages (no inbound WikiLink), and contradictions. Contradictions are surfaced for human review, never resolved silently. Broken citations exit non-zero so the run can gate.
 4. Append exactly one lint summary line to `log.md` and update the state.
+5. Optionally resync the viewer. When `VIEWER_AUTODEPLOY` is truthy and `CF_API_TOKEN` is set, a run that changed the wiki rebuilds and redeploys the viewer (`viewer/deploy_viewer.py`) so the live graph always reflects the wiki. A deploy failure is noted in the log line but never fails the lint; omit the env vars and the lint behaves exactly as before.
 
 ## Run it
 
