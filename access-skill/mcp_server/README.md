@@ -30,7 +30,7 @@ Add this to `~/Library/Application Support/Claude/claude_desktop_config.json` un
 {
   "mcpServers": {
     "velorixa-intelligence-layer": {
-      "command": "python3",
+      "command": "/usr/bin/python3",
       "args": ["/Users/Aitesting/Intelligence-Layer-Prototype-Claude/access-skill/mcp_server/server.py"],
       "env": {
         "WIKI_DIR": "/Users/Aitesting/Intelligence-Layer-Prototype-Claude/wiki",
