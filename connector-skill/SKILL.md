@@ -18,23 +18,48 @@ The schema at `wiki/CLAUDE.md` is the highest-weight document in the system. Loa
 
 ## Where things live
 
-- **Wiki (Layer 1)**: GitHub repo `nickclaw0/Intelligence-Layer-Prototype-Claude`, branch `main`. Read with the GitHub connector.
-- **Raw (Layer 0) and the manifest**: the Google Drive folder named `Intelligence Layer Prototype_Claude_v1`, specifically the `raw/` subtree. The manifest is at `raw/_manifest.json`. Read with the Google Drive connector.
+- **Wiki (Layer 1)**: GitHub repo `nickclaw0/Intelligence-Layer-Prototype-Claude`, branch `main`. Read with the **GitHub connector**.
+- **Raw (Layer 0) and the manifest**: the Google Drive folder named `Intelligence Layer Prototype_Claude_v1`, specifically the `raw/` subtree. The manifest is at `raw/_manifest.json`. Read with the **Google Drive connector**.
 
-If either location is missing or you cannot read it, stop and report the missing location. Do not guess and do not answer from general knowledge.
+If either connector is missing or returns nothing, stop and report which one. Do not guess and do not answer from general knowledge.
+
+## Connectors and their tools
+
+This skill runs on two connectors. Call them by name and use the specific operations below.
+
+### GitHub connector (the wiki, Layer 1)
+
+Owner `nickclaw0`, repo `Intelligence-Layer-Prototype-Claude`, branch `main`.
+
+- **Read a file**: the GitHub connector's file-contents tool (commonly named `get_file_contents`). Pass `owner = nickclaw0`, `repo = Intelligence-Layer-Prototype-Claude`, and a `path` such as `wiki/CLAUDE.md`, `wiki/index.md`, or `wiki/sources/<slug>.md`.
+- **Search the repo**: the GitHub connector's code-search tool (commonly named `search_code`), scoped to `repo:nickclaw0/Intelligence-Layer-Prototype-Claude`, to find pages that mention a term.
+
+If the GitHub connector is not present in the session, stop and tell the user it must be added and enabled before the skill can work. The entire wiki lives on GitHub, so without this connector there is nothing to ground answers in. Do not substitute general knowledge.
+
+### Google Drive connector (raw, Layer 0)
+
+The `Intelligence Layer Prototype_Claude_v1` folder, `raw/` subtree.
+
+- **Find a file**: `search_files` with a structured query. Examples:
+  - `title contains '_manifest'` to find the manifest.
+  - `fullText contains '<slug>'` or `title contains '<basename>'` to find a raw source by name.
+  - Narrow to the project with `parentId = '<folder id>'` once a folder id is known.
+- **Read a file**: `read_file_content` with the `fileId` returned by `search_files`.
+
+Drive limitation to respect: `read_file_content` supports Google Docs, Slides, Sheets, PDF, Word, Excel, PowerPoint, and images. It does **not** support plain `.txt`, `.md`, or `.json`. The raw transcripts and `_manifest.json` are plain text, so read them from the content snippets that `search_files` returns (call it with `excludeContentSnippets` unset or false). For a large raw file the snippet may be partial; say so rather than inventing the rest.
 
 ## The query cascade (run in order)
 
-1. **Read the schema first.** Use the GitHub connector to fetch `wiki/CLAUDE.md` from `nickclaw0/Intelligence-Layer-Prototype-Claude`. Apply its rules to everything that follows. If the file is missing, stop.
-2. **Read the index.** Fetch `wiki/index.md` from the same repo. The index enumerates the wiki: entities, concepts, sources, projects, synthesis, decisions, skills.
-3. **Identify candidate pages.** Pick the entity, concept, project, synthesis, and source pages the query touches. When the query word does not appear in the index, fall back to GitHub code search across the repo to find pages that reference it.
-4. **Read the candidate pages.** Fetch each with the GitHub connector.
+1. **Read the schema first.** Use the GitHub connector's file-contents tool to read `wiki/CLAUDE.md` from `nickclaw0/Intelligence-Layer-Prototype-Claude`. Apply its rules to everything that follows. If the GitHub connector is missing, stop and report it.
+2. **Read the index.** Read `wiki/index.md` the same way. The index enumerates the wiki: entities, concepts, sources, projects, synthesis, decisions, skills.
+3. **Identify candidate pages.** Pick the entity, concept, project, synthesis, and source pages the query touches. When the query word does not appear in the index, use the GitHub connector's code-search tool (`repo:nickclaw0/Intelligence-Layer-Prototype-Claude`) to find pages that reference it.
+4. **Read the candidate pages.** Read each `wiki/<path>.md` with the GitHub connector's file-contents tool.
 5. **Answer with citations.** Every factual claim in the response cites a source id, in the inline form `[claim]^[src:<id>]`. Source ids are the manifest keys (sha256 content hashes for now; Drive file ids once Phase 3 reconciles). Keep house style: plain and conversational, no em dashes, no "X is not just Y" construction, no forced three-item lists.
-6. **Drop to raw only when the wiki summarises and points there**, or when the question demands detail the wiki does not carry. Procedure:
-   1. Use the Drive connector to read `raw/_manifest.json` inside the `Intelligence Layer Prototype_Claude_v1` folder.
+6. **Drop to raw only when the wiki summarises and points there**, or when the question demands detail the wiki does not carry. Procedure (Google Drive connector):
+   1. Find the manifest with `search_files` (`title contains '_manifest'`) and read it from the returned content snippet.
    2. Find the manifest entry whose `id` (or `short_ref`) matches the citation.
    3. Confirm the entry's `client` field is `velorixa`. If it is anything else, refuse and stop. The tenant guard rejects cross-client access.
-   4. Use the Drive connector to read the file at `current_path` (search by basename inside the project folder; the filesystem is case-insensitive). Integrate the original detail into the answer using the same `^[src:<id>]` citation.
+   4. Find the raw file by the basename of its `current_path` with `search_files` (`title contains '<basename>'`), then read it. For a plain-text source the content comes from the search snippet, since `read_file_content` does not support `.txt`. Integrate the original detail into the answer using the same `^[src:<id>]` citation.
 7. **If the answer is non-trivial and likely reusable**, say so plainly so a human can decide whether to file it back as a synthesis page. Do not edit the wiki yourself.
 
 Most queries resolve at step 5. Drop to raw only when needed.
