@@ -19,6 +19,7 @@ different transport.
 - Renders markdown with frontmatter, resolves WikiLinks to internal links, and styles `^[src:...]` citations.
 - Shows each page's type, client, and sensitivity as tags; flags `client-confidential` and `regulated` pages.
 - Groups the nav by page type (schema, index, sources, synthesis, skills, log, and the entity/concept/project/decision sections as they fill in).
+- The landing route (`/` and `/graph`) is an Obsidian-style association graph: a self-contained, dependency-free SVG force simulation where nodes are wiki pages and edges are the links between them (WikiLinks, `related:`, and `^[src:...]` citations resolved to their source page). Node size scales with connection count, hover highlights neighbours, drag pins a node, scroll zooms, and clicking a node opens the page. The `index` is kept as a node but contributes no outbound edges, so it stays present without dominating the layout; unresolved link targets render as distinct hollow nodes.
 
 ## Confidentiality (why it is auth-gated)
 
@@ -33,20 +34,27 @@ code or git. Pages send `noindex` / `no-store` headers.
 Deployed via the Cloudflare REST API (no `wrangler`, no Node):
 
 - Worker / dashboard tile: `intelligence-layer-prototype-claude`
-- URL: `https://intelligence-layer-prototype-claude.nateclaw0.workers.dev`
-- Auth: HTTP Basic Auth; user `velorixa`, password held as a Worker secret.
+- workers.dev URL: `https://intelligence-layer-prototype-claude.nateclaw0.workers.dev`
+- Custom domain: `https://intelligence-layer.nateclaw.com`
+- Auth: HTTP Basic Auth; user `velorixa`, password held as a Worker secret. Both URLs route to the same Worker and fail closed identically.
 
 Redeploy after editing the wiki:
 
 1. `python3 viewer/build_viewer.py`
 2. `PUT /accounts/{account_id}/workers/scripts/intelligence-layer-prototype-claude` with `worker.js` as the module and the `VIEWER_USER` / `VIEWER_PASS` secret_text bindings.
 
-The custom domain `intelligence.nateclaw.com` is deferred: that hostname already
-has externally-managed DNS records, so the viewer stays on its `workers.dev`
-URL until the existing record is repointed.
+The custom domain is `intelligence-layer.nateclaw.com`. The first-choice
+hostname `intelligence.nateclaw.com` already had an externally-managed DNS
+record, so rather than repoint or overwrite it the viewer was attached on a
+fresh, non-colliding subdomain. The Workers custom-domain attach
+(`PUT /accounts/{account_id}/workers/domains`) self-protects: it refuses if the
+hostname already has a DNS record, and on success it creates its own proxied
+record. Attaching `intelligence-layer.nateclaw.com` added one new record and
+left all pre-existing records (`intelligence`, `dashboard2`, `dashboard3`,
+`www`, apex, and the TXT/`_domainconnect` entries) byte-for-byte unchanged.
 
 ## Not yet
 
-- Backlinks panel, graph view, and citation hover-preview.
+- Backlinks panel and citation hover-preview. (The association graph view is done.)
 - Skill-invocation buttons on pages that declare `available_skills`.
 - Cloudflare Access (SSO) in place of Basic Auth for per-user permissions.
