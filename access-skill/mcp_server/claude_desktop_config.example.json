@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "velorixa-intelligence-layer": {
+      "command": "python3",
+      "args": ["/Users/Aitesting/Intelligence-Layer-Prototype-Claude/access-skill/mcp_server/server.py"],
+      "env": {
+        "WIKI_DIR": "/Users/Aitesting/Intelligence-Layer-Prototype-Claude/wiki",
+        "RAW_MANIFEST": "/Users/Aitesting/Library/CloudStorage/GoogleDrive-nicolasgchr@gmail.com/.shortcut-targets-by-id/1QflKW2ZIKTW9ppldBWKpV0xwPK6Yjl04/Intelligence Layer Prototype_Claude_v1/raw/_manifest.json",
+        "TENANT": "velorixa"
+      }
+    }
+  }
+}
