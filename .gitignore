@@ -16,3 +16,6 @@ build/
 *.log
 .vscode/
 .idea/
+
+# Lint runtime state (per-environment; the daily routine persists its own)
+lint/.lint_state.json

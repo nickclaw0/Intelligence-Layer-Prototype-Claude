@@ -15,6 +15,7 @@ _None yet._
 ## Sources
 
 - [[sources/2026-04-02-kickoff-brand-ambition]] — Brand strategy kickoff: ambition, positioning direction, claims guardrails, proposal shape, research approach. (transcript, 1 source, 2026-04-02)
+- [[sources/2026-04-09-positioning-workshop]] — positioning workshop (transcript, 1 source)
 
 ## Projects
 
