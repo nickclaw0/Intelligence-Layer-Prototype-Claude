@@ -1,0 +1,136 @@
+# Avalere PPT layout catalogue
+
+132 named layouts in Avalere_PPT_template.potx (theme: Avalere Health 2025). The build engine reads these from the template at run time; this file is a pinned reference. Select by name (dash/case-insensitive).
+
+- 2 Headered Columns – Black
+- 2 Headered Columns – White
+- 2 Headered Columns – White with panel
+- 3 Headered Columns – Black
+- 3 Headered Columns – White
+- 3 Sections – RHS Aframe – Black & Pink
+- 3 Sections – RHS Aframe – Black & Turquoise/Lime
+- 3 Sections – RHS Aframe – White & Pink
+- 3 Sections – RHS Aframe – White & Turquoise/Lime
+- 4 Headered Columns – Black
+- 4 Headered Columns – White
+- 6 Text Sections – Black with Custom Corner
+- 6 Text Sections – Pink Corner
+- 6 Text Sections – Turquoise/Lime Corner
+- Aframe Split L-R – 2 Big Statements – Black & Custom
+- Aframe Split L-R – 2 Big Statements – Custom & Black
+- Aframe Split – 2 Sections – Black, White, Pink Line
+- Aframe Split – 2 Sections – Black, White, Turquoise/Lime Line
+- Aframe Split – 2 Sections – White, Black, Pink Line
+- Aframe Split – 2 Sections – White, Black, Turquoise/Lime Line
+- Aframe Split – Black & Pink
+- Aframe Split – Black & Turquoise/Lime
+- Aframe Split – Pink & Black
+- Aframe Split – Pink & White
+- Aframe Split – Turquoise/Lime & Black
+- Aframe Split – Turquoise/Lime & White
+- Aframe Split – White & Pink
+- Aframe Split – White & Turquoise/Lime
+- Agenda – Black – Expanded
+- Agenda – Pink – Expanded
+- Agenda – Pink – Titles only
+- Agenda – Turquoise/Lime – Expanded
+- Agenda – Turquoise/Lime – Titles only
+- Big Title – Aframe Panel – Black & Custom
+- Big Title – Aframe Panel – White & Pink
+- Big Title – Aframe Panel – White & Turquoise/Lime
+- Biography – Black & Pink
+- Biography – Black & Turquoise/Lime
+- Biography – White & Pink
+- Biography – White & Turquoise/Lime
+- Blank – Black
+- Blank – White
+- Bottom Stats Panel – Black & Pink
+- Bottom Stats Panel – Black & Turquoise/Lime
+- Bottom Stats Panel – White & Pink
+- Bottom Stats Panel – White & Pink Line
+- Bottom Stats Panel – White & Turquoise/Lime
+- Bottom Stats Panel – White & Turquoise/Lime Line
+- Case Study – Pink
+- Case Study – Pink Plain
+- Case Study – Pink Visual
+- Case Study – Turquoise/Lime
+- Case Study – Turquoise/Lime Plain
+- Case Study – Turquoise/Lime Visual
+- Cover – Pink – Classroom
+- Cover – Pink – Custom
+- Cover – Pink – Cutout
+- Cover – Turquoise/Lime – Custom
+- Cover – Turquoise/Lime – Cutout
+- Cover – Turquoise/Lime – Lady
+- Custom Split – Pink & Black
+- Custom Split – Turquoise/Lime & Black
+- Custom Split – White & Pink
+- Custom Split – White & Turquoise/Lime
+- Divider – Black  – Cutout
+- Divider – Black – Custom
+- Divider – Custom Colour – Custom
+- Divider – Custom Colour – Cutout
+- Divider – White – Custom
+- Divider – White – Cutout
+- Half Split – Black & Pink
+- Half Split – Black & Turquoise/Lime
+- Half Split – Black & White – Pink Line
+- Half Split – Black & White – Turquoise/Lime Line
+- Half Top Panel – 3 Sections – Custom & Black
+- Half Top Panel – 3 Sections – White & Custom Line
+- Large Statement – Black
+- Large Statement – Image Splash
+- Large Statement – White
+- Manifesto / Intro – Black
+- Manifesto / Intro – White
+- RHS Aframe Image – Black & Pink
+- RHS Aframe Image – Black & Turquoise/Lime
+- RHS Aframe Image – White & Pink
+- RHS Aframe Image – White & Turquoise/Lime
+- RHS Stats Panel – White & Pink
+- RHS Stats Panel – White & Turquoise/Lime
+- RHS Stats Panel – White, Black & Pink Line
+- RHS Stats Panel – White, Black & Turquoise/Lime Line
+- Team of 10 – Black
+- Team of 10 – White
+- Team of 15 – RHS Panel – Black & Custom Line
+- Team of 15 – RHS Panel – White & Custom Line
+- Team of 24 – RHS Panel – Black & Custom Line
+- Team of 24 – RHS Panel – White & Custom Line
+- Team of 5 – Black
+- Team of 5 – White
+- Text Sections – RHS Image – Black & Pink
+- Text Sections – RHS Image – Black & Turquoise/Lime
+- Text Sections – RHS Image – White & Pink
+- Text Sections – RHS Image – White & Turquoise/Lime
+- Thank You – Black
+- Thank You – Pink
+- Thank You – Turquoise/Lime
+- Thank You – White
+- Thin Top Panel – 3 Sections – Custom & Black
+- Thin Top Panel – 3 Sections – White & Custom Line
+- Third Split – Black & Pink
+- Third Split – Black & Turquoise/Lime
+- Third Split – Black & White – Custom Line
+- Third Split – White & Black – Custom Line
+- Timeline and Blurb – Black, White & Custom
+- Timeline and Blurb – White, Black & Custom
+- Timeline only – Black & Pink
+- Timeline only – Black & Turquoise/Lime
+- Title and Content – Black
+- Title and Content – Corner Gradient – Black & Custom
+- Title and Content – Corner Gradient – White & Pink
+- Title and Content – Corner Gradient – White & Turquoise/Lime
+- Title and Content – Pink
+- Title and Content – Slash – White & Pink
+- Title and Content – Slash – White & Turquoise/Lime
+- Title and Content – Turquoise/Lime
+- Title and Content – White
+- Title and Content – Wide Slash – White & Pink
+- Title and Content – Wide Slash – White & Turquoise/Lime
+- Title only – Black
+- Title only – White
+- Video – Black & Pink
+- Video – Black & Turquoise/Lime
+- Video – White & Pink
+- Video – White & Turquoise/Lime

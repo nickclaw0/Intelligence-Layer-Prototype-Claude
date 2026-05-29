@@ -1,0 +1,14 @@
+{
+  "output": "velorixa_kickoff_recap.docx",
+  "blocks": [
+    {"style": "Title", "text": "Velorixa"},
+    {"style": "Subtitle", "text": "Brand strategy kickoff recap"},
+    {"style": "Heading 1", "text": "Brand ambition"},
+    {"style": "Normal", "text": "The core pressure is clarity: a promising insomnia treatment with no shared story across medical, commercial, and leadership.", "citations": ["623851f2"]},
+    {"style": "Normal", "text": "The richer territory is helping people feel in control of their nights again, away from crowded functional sleep promises, while staying a credible treatment brand.", "citations": ["623851f2"]},
+    {"style": "Heading 1", "text": "Proposal shape"},
+    {"style": "List Bullet", "text": "Four phases: foundation, creative system, launch planning, activation toolkit, each with decision points.", "citations": ["623851f2"]},
+    {"style": "List Bullet", "text": "Research is a lean validation sprint with patient and HCP stimulus testing, not a large segmentation study.", "citations": ["623851f2"]},
+    {"style": "List Bullet", "text": "Guiding principle: enough evidence to decide, not enough research to avoid deciding.", "citations": ["623851f2"]}
+  ]
+}

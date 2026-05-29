@@ -1,0 +1,33 @@
+{
+  "output": "velorixa_kickoff_deck.pptx",
+  "title": "Velorixa Brand Strategy",
+  "slides": [
+    {
+      "layout": "Cover - Pink - Custom",
+      "title": "Velorixa",
+      "subtitle": "Brand Strategy Kickoff",
+      "citations": ["623851f2"]
+    },
+    {
+      "layout": "Title and Content - White",
+      "title": "The brand ambition",
+      "bullets": [
+        "The core pressure is clarity: a promising insomnia treatment with no shared story across medical, commercial, and leadership",
+        "The richer territory is helping people feel in control of their nights again, away from crowded functional sleep promises",
+        "Velorixa stays a credible treatment brand with the science front and centre, not lifestyle wellness"
+      ],
+      "citations": ["623851f2"],
+      "notes": "Drawn from sources/2026-04-02-kickoff-brand-ambition"
+    },
+    {
+      "layout": "Title and Content - Turquoise/Lime",
+      "title": "Proposal shape",
+      "bullets": [
+        "Four phases: foundation, creative system, launch planning, activation toolkit, each with decision points",
+        "Research is a lean validation sprint with patient and HCP stimulus testing, not a large segmentation study",
+        "Guiding principle: enough evidence to decide, not enough research to avoid deciding"
+      ],
+      "citations": ["623851f2"]
+    }
+  ]
+}
