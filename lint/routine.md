@@ -41,3 +41,26 @@ CF_API_TOKEN=... python3 viewer/deploy_viewer.py
 ## Activation
 
 Create it with the `/schedule` skill (Claude routine) or an equivalent cron entry. The human activates it deliberately. The separate monthly sweep (full orphan/stale/index-health pass) is its own routine and is not defined here.
+
+## Current deployment
+
+Created as a **remote Claude routine** (runs in Anthropic's cloud, not on a local
+machine): name `velorixa-daily-lint`, id `trig_014bDabKh7nT66xBbvPbJhVH`,
+schedule `0 5 * * *` (06:00 Europe/London = 05:00 UTC), env NateClaw, model
+`claude-sonnet-4-6`, source repo `nickclaw0/Intelligence-Layer-Prototype-Claude`.
+Manage at `https://claude.ai/code/routines/trig_014bDabKh7nT66xBbvPbJhVH`.
+
+Two consequences of it being remote, both reflected in the routine's prompt:
+
+- **Manifest access.** The cloud env cannot see the local Drive mount, so the
+  routine fetches `raw/_manifest.json` through the attached Google Drive
+  connector and runs `daily_lint.py --manifest <downloaded copy>`.
+- **No viewer redeploy.** There is no Cloudflare token in the cloud env, so the
+  routine does not run `viewer/deploy_viewer.py`. It folds sources and pushes to
+  GitHub; the viewer is resynced separately (locally).
+
+**Open blocker:** a verification run returned `github_repo_access_denied`. The
+Claude GitHub App must be re-authorized for the repo on the NateClaw environment
+before the routine can clone it; until then each fire fails the same way. After
+re-authorizing, trigger a run to confirm the full chain (Drive manifest -> lint
+-> commit/push).

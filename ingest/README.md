@@ -44,17 +44,24 @@ and `id_type` is `content-hash`. The workflow captures the Drive file id in a
 rename never orphans a citation. The current workflow records `drive_file_id`
 on ingest; flipping `id_type` is a follow-up once every live entry carries one.
 
-## Setup (do this in n8n; needs the live instance)
+## Setup (finish the wiring in n8n; the workflow is already created)
 
-This repo ships the template. Wiring it to the running n8n instance is a manual,
-credentialed step:
+The workflow has been **created in the live instance** (`nateclaw.app.n8n.cloud`)
+via the public API: name `Intelligence Layer Prototype Claude`, id
+`DtkNEcdolxsSIpHs`, **inactive**. On create, the template's placeholder credential
+references were stripped from the 5 Drive nodes (n8n refuses to save credentials
+not shared with the API key), so the nodes show "select a credential" until you
+wire them. Bringing it live is still a deliberate, credentialed step:
 
 1. **Instance + key.** The n8n public-API key is held outside this repo (never
-   commit it). The key alone does not name the instance; you import against your
-   own n8n instance URL.
-2. **Import.** n8n -> Workflows -> Import from File -> `velorixa-ingest-pipeline.n8n.json`.
-3. **Credentials.** Attach a Google Drive OAuth credential to the four Drive
-   nodes. These are created interactively in n8n and cannot be set from this repo.
+   commit it). The instance is `nateclaw.app.n8n.cloud`.
+2. **Import.** Already done — created via `POST /api/v1/workflows`. (To rebuild
+   from scratch instead, n8n -> Workflows -> Import from File ->
+   `velorixa-ingest-pipeline.n8n.json`, stripping the placeholder credential refs
+   first, or the save is rejected.)
+3. **Credentials.** Attach a Google Drive OAuth credential to the **5** Drive
+   nodes (the trigger plus the 4 action nodes). These are created interactively
+   in n8n and cannot be set from this repo.
 4. **Replace the `REPLACE_WITH_*` placeholders:**
    - `REPLACE_WITH_INGEST_FOLDER_ID` — Drive folder id of `Ingest/`.
    - `REPLACE_WITH_MANIFEST_FILE_ID` — Drive file id of `raw/_manifest.json`.
@@ -67,10 +74,11 @@ credentialed step:
    entry, and a duplicate of the same file is skipped on a second run.
 6. **Activate** only after a clean manual run.
 
-## Why this is a template, not a live deployment
+## Why it is created but left inactive
 
 The pipeline mutates Layer 0 (moves raw files, rewrites the manifest) and
 triggers a commit-producing lint. That is shared, hard-to-reverse state, and it
 needs Drive + GitHub credentials that must be created interactively inside n8n.
-The repo therefore carries a reviewed, import-ready template; bringing it live is
-a deliberate, credentialed step taken in the n8n instance.
+So the workflow is created (the structure is reviewed and in place) but kept
+inactive until the credentials, placeholder IDs, and a clean manual test are
+done — activation is the last, deliberate step.
