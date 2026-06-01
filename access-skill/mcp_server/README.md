@@ -25,7 +25,7 @@ The bridge that lets a Claude client query the Velorixa Intelligence Layer. It i
 | `TENANT` | `velorixa` |
 | `OUTPUT_DIR` | `~/Desktop` (where generated decks/docs are saved) |
 
-The `generate_deck` and `generate_doc` tools run the Phase 4 build engines in-process, so the interpreter that launches the server needs `python-pptx` and `python-docx` available (installed for `/usr/bin/python3` via `pip install --user`).
+The `generate_deck` and `generate_doc` tools run the Phase 4 build engines in-process. Those engines are pure standard library (zipfile + xml.etree), so any Python 3.9+ interpreter can launch the server with no `pip install` step.
 
 ## Connect it to Claude Desktop
 

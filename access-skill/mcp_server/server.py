@@ -150,7 +150,7 @@ def t_generate_deck(args):
     try:
         mod = _load_module("wiki/skills/generate-avalere-pptx/build_deck.py", "build_deck")
     except Exception as e:
-        return f"deck engine unavailable: {e}. The generate tools need python-pptx installed for this interpreter."
+        return f"deck engine unavailable: {e}. The engine is pure standard library; check that build_deck.py is present under wiki/skills/generate-avalere-pptx/."
     path, n = mod.build(spec, mod.DEFAULT_TEMPLATE, out)
     return f"Created deck: {path} ({n} slides) in the Avalere template. Open it from there."
 
@@ -163,7 +163,7 @@ def t_generate_doc(args):
     try:
         mod = _load_module("wiki/skills/generate-avalere-docx/build_doc.py", "build_doc")
     except Exception as e:
-        return f"doc engine unavailable: {e}. The generate tools need python-docx installed for this interpreter."
+        return f"doc engine unavailable: {e}. The engine is pure standard library; check that build_doc.py is present under wiki/skills/generate-avalere-docx/."
     path, n = mod.build(spec, mod.DEFAULT_TEMPLATE, out)
     return f"Created document: {path} ({n} blocks) in the Avalere template. Open it from there."
 

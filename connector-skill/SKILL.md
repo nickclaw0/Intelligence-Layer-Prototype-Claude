@@ -91,5 +91,5 @@ The skill is correctly installed and behaving when, in a fresh chat:
 
 ## Not in scope for v1
 
-- `generate_deck` and `generate_doc`. The Avalere deck and document generators rely on `python-pptx` and `python-docx` and remain in the local stdio variant under `access-skill/mcp_server/`. The connector-based skill is read-only for now and will gain deliverable generation in a later iteration that wraps a small hosted service.
+- `generate_deck` and `generate_doc`. The Avalere deck and document generators are pure standard library (zipfile + xml.etree, no third-party packages) and run in the local stdio variant under `access-skill/mcp_server/`. The connector-based skill is read-only because the connector path cannot execute local Python; it will gain deliverable generation in a later iteration that wraps a small hosted service.
 - Wiki edits. Filing synthesis back is the maintainer's job, not this skill's.
