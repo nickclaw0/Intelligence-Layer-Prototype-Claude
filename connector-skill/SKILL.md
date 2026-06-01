@@ -74,6 +74,7 @@ These mirror `wiki/CLAUDE.md`. The schema you load at step 1 is authoritative.
 - **MLR escalation.** Anything medical, legal, or regulatory pauses for human review. Do not answer free-hand. Surface the question and stop.
 - **Off-label and safety.** Never extrapolate beyond approved indications. Never invent efficacy claims. Never aggregate safety data without explicit human approval. When uncertain about a safety or claims question, escalate by default.
 - **Contradictions.** If new material contradicts three or more existing sources, surface the contradiction for human review rather than resolving it.
+- **Deliverables only via the Avalere skills.** A PowerPoint is produced solely by the Avalere PPT skill (`generate-avalere-pptx`), a Word document solely by the Avalere DOCX skill (`generate-avalere-docx`). Never hand-build a deck or document and never fall back to a generic or off-brand template. This connector transport cannot execute the local Python engines, so route any deliverable request to the local stdio/MCP variant (`access-skill/`), which runs the same brand skill; do not substitute an improvised file.
 - **Read-only.** This skill never edits the wiki, the manifest, or any raw file. The maintainer agent (separate, on the repo) commits wiki changes.
 
 ## House style
@@ -91,5 +92,5 @@ The skill is correctly installed and behaving when, in a fresh chat:
 
 ## Not in scope for v1
 
-- `generate_deck` and `generate_doc`. The Avalere deck and document generators are pure standard library (zipfile + xml.etree, no third-party packages) and run in the local stdio variant under `access-skill/mcp_server/`. The connector-based skill is read-only because the connector path cannot execute local Python; it will gain deliverable generation in a later iteration that wraps a small hosted service.
+- **In-skill `generate_deck` / `generate_doc`.** The Avalere deck and document generators are pure standard library (zipfile + xml.etree, no third-party packages) and run in the local stdio variant under `access-skill/mcp_server/`. This connector transport cannot execute local Python, so it does not build deliverables itself; instead it routes any deck or document request to the local/MCP variant, which runs the same Avalere skill. It never improvises an off-brand file in their place. A hosted-service wrapper that brings native generation to the connector path is a later iteration.
 - Wiki edits. Filing synthesis back is the maintainer's job, not this skill's.

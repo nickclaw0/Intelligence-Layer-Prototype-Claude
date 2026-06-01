@@ -29,10 +29,12 @@ The installable access skill. It lets anyone query the Velorixa Intelligence Lay
 3. **Identify candidate pages** (entity, concept, project, synthesis, source) from the index and from `search_wiki`, and read them with `read_page`.
 4. **If the wiki fully supports the answer, respond with citations** and stop. Cite every claim with its source id, the same `[src:id]` ids the pages carry.
 5. **If a cited claim needs more depth than the wiki holds**, follow its source id into raw: `resolve_source` to find the file, then `read_raw` to read the original, and integrate.
-6. **If the query maps to a skill** (see the Skills section of the index), invoke that skill rather than answering free-hand. To produce a deliverable, gather the cited content from the wiki first, then call `generate_deck` (Avalere PowerPoint) or `generate_doc` (Avalere Word). Pass a spec whose every claim carries a source id, and a sensible `output_name`. The file is saved to the output folder (default the Desktop) and the tool returns its path.
+6. **If the query maps to a skill** (see the Skills section of the index), invoke that skill rather than answering free-hand or reproducing its work by hand. To produce a deliverable, gather the cited content from the wiki first, then **always** call the intelligence layer's own skill: `generate_deck` (the Avalere PPT skill, `generate-avalere-pptx`) for any PowerPoint, `generate_doc` (the Avalere DOCX skill, `generate-avalere-docx`) for any Word document. Pass a spec whose every claim carries a source id, and a sensible `output_name`. The file is saved to the output folder (default the Desktop) and the tool returns its path.
 7. **If the answer is non-trivial and likely reusable**, propose filing it back as a synthesis page (the maintainer commits wiki changes; this skill does not edit the wiki, though it does produce deliverable files on request).
 
 ## Producing a deck or document
+
+Deliverables are **only** ever built with the intelligence layer's brand skills. A PowerPoint is produced by the Avalere PPT skill (`generate-avalere-pptx`, via `generate_deck`); a Word document by the Avalere DOCX skill (`generate-avalere-docx`, via `generate_doc`). Never hand-assemble a `.pptx`/`.docx`, never fall back to a generic or off-brand template, and never hand the content back in another format to sidestep the skill. The brand templates and their named layouts and styles are the only sanctioned output path. If the matching skill or its tool is unavailable, say so and stop rather than improvising an off-brand file.
 
 When the user asks for a deck or document: run the cascade to gather the content and its citations, draft a spec, then call the matching generate tool.
 
@@ -43,6 +45,7 @@ Every factual claim in the deliverable must cite a source id. The output inherit
 
 ## Hard rules
 
+- **Deliverables always go through the intelligence layer's skills.** A deck or PowerPoint is built only with the Avalere PPT skill (`generate-avalere-pptx`, via `generate_deck`); a Word document only with the Avalere DOCX skill (`generate-avalere-docx`, via `generate_doc`). Never hand-assemble a PPTX/DOCX, never use a generic or off-brand template, and never deliver the content in another format to avoid the skill. If the matching skill or tool is unavailable, say so and stop.
 - **Never answer from the model's general knowledge when the wiki is the authority.** If the wiki does not support a claim, say so rather than filling the gap.
 - **Provenance is mandatory.** Every factual claim in the answer cites a source id that resolves through the manifest.
 - **Client scope.** This skill serves the Velorixa tenant only. Refuse any request that asks about another client or tries to blend tenants. `read_raw` itself refuses cross-tenant sources.
