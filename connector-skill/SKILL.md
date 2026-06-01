@@ -64,6 +64,15 @@ Drive limitation to respect: `read_file_content` supports Google Docs, Slides, S
 
 Most queries resolve at step 5. Drop to raw only when needed.
 
+## Producing a deck or document
+
+When the request is for a PowerPoint, deck, slides, Word document, one-pager, or recap, the answer is a branded file, not prose. Always produce it with the companion Avalere skill, never by hand and never as a generic deck:
+
+1. Run the cascade above to gather the content and, for every claim, its source id.
+2. Hand off to the matching skill: **`generate-avalere-pptx`** for any PowerPoint, **`generate-avalere-docx`** for any Word document. Each is a self-contained installable skill (bundles `velorixa-avalere-pptx-skill.zip` / `velorixa-avalere-docx-skill.zip` in the Drive project folder) that ships the pinned Avalere template and runs in code execution.
+3. Give it a spec whose every factual claim carries a source id. The deck spec is `{title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}`; the doc spec is `{blocks:[{style, text, citations?}]}`. The generator renders citations inline as `[src:id]`.
+4. The output inherits the highest classification of any source it cites. If the matching generator skill is not installed, say so and stop; do not improvise an off-brand file.
+
 ## Hard rules
 
 These mirror `wiki/CLAUDE.md`. The schema you load at step 1 is authoritative.
@@ -74,7 +83,7 @@ These mirror `wiki/CLAUDE.md`. The schema you load at step 1 is authoritative.
 - **MLR escalation.** Anything medical, legal, or regulatory pauses for human review. Do not answer free-hand. Surface the question and stop.
 - **Off-label and safety.** Never extrapolate beyond approved indications. Never invent efficacy claims. Never aggregate safety data without explicit human approval. When uncertain about a safety or claims question, escalate by default.
 - **Contradictions.** If new material contradicts three or more existing sources, surface the contradiction for human review rather than resolving it.
-- **Deliverables only via the Avalere skills.** A PowerPoint is produced solely by the Avalere PPT skill (`generate-avalere-pptx`), a Word document solely by the Avalere DOCX skill (`generate-avalere-docx`). Never hand-build a deck or document and never fall back to a generic or off-brand template. This connector transport cannot execute the local Python engines, so route any deliverable request to the local stdio/MCP variant (`access-skill/`), which runs the same brand skill; do not substitute an improvised file.
+- **Deliverables only via the Avalere skills.** A PowerPoint is produced solely by the Avalere PPT skill (`generate-avalere-pptx`), a Word document solely by the Avalere DOCX skill (`generate-avalere-docx`). Never hand-build a deck or document, never fall back to a generic or off-brand template, and never hand the content back in another format to sidestep them. Install those two skills alongside this one (the bundles `velorixa-avalere-pptx-skill.zip` and `velorixa-avalere-docx-skill.zip` in the Drive project folder); each is self-contained, ships the pinned Avalere template, and runs in code execution with no install step. This query skill gathers the cited wiki content and hands a spec to the matching generator skill. If that generator skill is not installed, say so and stop rather than improvising an off-brand file.
 - **Read-only.** This skill never edits the wiki, the manifest, or any raw file. The maintainer agent (separate, on the repo) commits wiki changes.
 
 ## House style
@@ -92,5 +101,5 @@ The skill is correctly installed and behaving when, in a fresh chat:
 
 ## Not in scope for v1
 
-- **In-skill `generate_deck` / `generate_doc`.** The Avalere deck and document generators are pure standard library (zipfile + xml.etree, no third-party packages) and run in the local stdio variant under `access-skill/mcp_server/`. This connector transport cannot execute local Python, so it does not build deliverables itself; instead it routes any deck or document request to the local/MCP variant, which runs the same Avalere skill. It never improvises an off-brand file in their place. A hosted-service wrapper that brings native generation to the connector path is a later iteration.
+- **Building the deliverable inside this query skill.** This skill gathers and cites wiki content; it does not itself render PPTX/DOCX. Deliverable generation is the job of the companion Avalere skills (`generate-avalere-pptx`, `generate-avalere-docx`), installed as their own self-contained bundles. On Claude.ai they run in code execution with the pinned template bundled and no install step (pure standard library, zipfile + xml.etree); under the local stdio MCP server they are the `generate_deck` / `generate_doc` tools. Either way this skill hands them the cited spec and never improvises an off-brand file.
 - Wiki edits. Filing synthesis back is the maintainer's job, not this skill's.

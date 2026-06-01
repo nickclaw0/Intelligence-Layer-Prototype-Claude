@@ -1,8 +1,8 @@
 ---
 name: generate-avalere-docx
-description: Produce a Word document in the Avalere template, on-brand and cited from the wiki
+description: Produce a Word document in the Avalere template, on-brand and cited from the wiki. Use this skill for ANY request to make a Word document, .docx, one-pager, recap, brief, or write-up for Velorixa. Never build a document by another method.
 triggers:
-  - query_patterns: ["write a document", "draft a doc", "avalere doc", "one-pager", "recap document"]
+  - query_patterns: ["write a document", "write a doc", "draft a doc", "draft a document", "create a document", "word doc", "word document", "docx", "avalere doc", "one-pager", "one pager", "recap document", "write up", "write-up", "brief"]
   - event: project_page_marked_doc_needed
 required_tools:
   - file_creation
@@ -20,11 +20,17 @@ client: velorixa
 
 Produce a document in the Avalere Word template, built on the anthropics/skills docx pattern. Use the template-as-base approach: start from the supplied template file, clear its demo body while keeping the section properties, and add content using the template's own named styles. The brand comes from the template's styles, theme, header, footer, and logo, never from ad-hoc formatting.
 
+**This skill is the only sanctioned way to produce a Velorixa Word document.** Whenever a document, .docx, one-pager, recap, or write-up is requested, use this skill: gather the cited wiki content, write a spec, and run `build_doc.py`. Do not fall back to a generic document or another tool.
+
 ## Base assets
 
-- Template (pinned): `../_assets/Avalere_Doc_template.docx` (theme palette Custom 2, named styles, header/footer with embedded logo).
+- Template (pinned): the Avalere Word template (theme palette Custom 2, named styles, header/footer with embedded logo). The engine finds it automatically: in this repo it is `../_assets/Avalere_Doc_template.docx`; in a self-contained skill bundle (for example installed on Claude.ai) it ships inside the skill folder at `assets/Avalere_Doc_template.docx`.
 - Engine: `build_doc.py`.
 - Style reference: `styles_reference.md`. The engine also reads style names from the template at build time.
+
+## Running on Claude.ai (bundled, in code execution)
+
+When this skill is installed on Claude.ai, it is self-contained: `build_doc.py` plus the pinned template under `assets/`. It runs in the code-execution sandbox with no install step (pure standard library on Python 3.9+). The flow: read the wiki for the content and its source IDs (via the connectors or the query skill), write the spec JSON, run `python3 build_doc.py spec.json --out document.docx`, and return the resulting branded `.docx`.
 
 ## How to build
 

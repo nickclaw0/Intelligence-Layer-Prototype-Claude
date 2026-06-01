@@ -42,7 +42,24 @@ import sys, os, json, argparse, zipfile, re
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_TEMPLATE = os.path.normpath(os.path.join(HERE, "..", "_assets", "Avalere_PPT_template.potx"))
+
+
+def _find_template(filename):
+    """Locate the pinned template in either the repo layout or a self-contained
+    skill bundle. Repo: ../_assets/<file>. Bundle (e.g. installed on Claude.ai):
+    the template is shipped inside the skill folder under assets/ or alongside it."""
+    candidates = [
+        os.path.join(HERE, "assets", filename),                          # bundled skill layout
+        os.path.join(HERE, filename),                                    # co-located
+        os.path.normpath(os.path.join(HERE, "..", "_assets", filename)), # repo layout
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return candidates[-1]  # repo default; a missing-file error surfaces clearly at open
+
+
+DEFAULT_TEMPLATE = _find_template("Avalere_PPT_template.potx")
 
 P = "http://schemas.openxmlformats.org/presentationml/2006/main"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
