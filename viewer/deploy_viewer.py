@@ -11,9 +11,8 @@ Secrets are never hardcoded:
   - The Cloudflare API token is read from CF_API_TOKEN. If it is absent the
     script refuses to deploy (so it is a safe no-op in environments without
     Cloudflare access).
-  - The Worker's Basic-Auth secrets (VIEWER_USER / VIEWER_PASS) are preserved
-    across deploys via the `inherit` binding type, so this script never needs,
-    sees, or transmits their values.
+  - The viewer is public by site owner request. This deploy does not attach
+    VIEWER_USER / VIEWER_PASS bindings.
 
 Usage:
     CF_API_TOKEN=... python3 viewer/deploy_viewer.py
@@ -69,11 +68,7 @@ def deploy(token):
     metadata = json.dumps({
         "main_module": "worker.js",
         "compatibility_date": COMPAT,
-        # Preserve the existing Basic-Auth secrets without knowing their values.
-        "bindings": [
-            {"type": "inherit", "name": "VIEWER_USER"},
-            {"type": "inherit", "name": "VIEWER_PASS"},
-        ],
+        "bindings": [],
     }).encode()
     boundary, body = _multipart(metadata, WORKER_JS.read_bytes())
     url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/workers/scripts/{WORKER}"

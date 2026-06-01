@@ -8,8 +8,16 @@ the layout placeholders. The theme (Avalere Health 2025), the Inter fonts, and
 every branded layout are preserved because we never rebuild geometry, we only
 fill placeholders on the template's own layouts.
 
+Pure standard library (zipfile + xml.etree): the runtime here is Python 3.9
+with no third-party packages and no network, and a teammate cloning the repo
+should not have to install anything. We open the .potx as a zip, keep every
+master / layout / theme / font part byte-for-byte, drop the template's demo
+slides, and write fresh slide parts whose text binds to the chosen layout's own
+placeholders.
+
 Usage:
     python3 build_deck.py <spec.json> [--template <path>] [--out <path>]
+    python3 build_deck.py list-layouts [<template>]
 
 Spec JSON shape:
 {
@@ -27,67 +35,50 @@ Spec JSON shape:
   ]
 }
 
-Layout names are read from the template at build time (Appendix A note). Use
-list-layouts to print the catalogue.
+Layout names are read from the template at build time. Use list-layouts to
+print the catalogue.
 """
-import sys, os, json, argparse, zipfile, tempfile, shutil, re
-
-from pptx import Presentation
-from pptx.util import Pt
-from pptx.oxml.ns import qn
+import sys, os, json, argparse, zipfile, re
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TEMPLATE = os.path.normpath(os.path.join(HERE, "..", "_assets", "Avalere_PPT_template.potx"))
 
+P = "http://schemas.openxmlformats.org/presentationml/2006/main"
+A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+PR = "http://schemas.openxmlformats.org/package/2006/relationships"
+SLIDE_CT = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
+NOTES_CT = "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"
+SLIDE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"
+LAYOUT_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout"
+NOTES_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"
+NOTESMASTER_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster"
 
-def load_template(path):
-    """Open a .potx/.pptx with python-pptx, normalising the template content type if needed."""
-    try:
-        return Presentation(path)
-    except Exception:
-        tmp = tempfile.mktemp(suffix=".pptx")
-        with zipfile.ZipFile(path) as zin, zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
-            for item in zin.namelist():
-                data = zin.read(item)
-                if item == "[Content_Types].xml":
-                    data = data.replace(
-                        b"presentationml.template.main+xml",
-                        b"presentationml.presentation.main+xml",
-                    )
-                zout.writestr(item, data)
-        return Presentation(tmp)
+DEFAULT_LAYOUT = "Title and Content - White"
 
 
-def clear_slides(prs):
-    """Remove the template's demo slides so the deck starts clean, keeping masters/layouts/theme.
-
-    Drops both the sldId entry and the presentation->slide relationship, so the orphaned
-    slide parts are not reachable in the relationship graph and are not re-serialised
-    (which would otherwise collide with new slideN.xml part names).
-    """
-    sldIdLst = prs.slides._sldIdLst
-    for sldId in list(sldIdLst):
-        rId = sldId.get(qn("r:id"))
-        sldIdLst.remove(sldId)
-        try:
-            prs.part.drop_rel(rId)
-        except Exception:
-            pass
-
-
-def layout_map(prs):
-    """name -> layout object, across every slide master."""
-    m = {}
-    for master in prs.slide_masters:
-        for layout in master.slide_layouts:
-            m.setdefault(layout.name.strip(), layout)
-    return m
+def esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 def _norm(s):
     """Lowercase and collapse dash variants/whitespace so specs can use plain hyphens."""
     s = s.replace("–", "-").replace("—", "-")
     return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def layout_files(zin):
+    """name -> 'slideLayoutN.xml', across the layouts in the package."""
+    out = {}
+    for n in zin.namelist():
+        if re.match(r"ppt/slideLayouts/slideLayout\d+\.xml$", n):
+            root = ET.fromstring(zin.read(n))
+            csld = root.find("{%s}cSld" % P)
+            name = csld.get("name") if csld is not None else os.path.basename(n)
+            out[name.strip()] = os.path.basename(n)
+    return out
 
 
 def pick_layout(lmap, requested):
@@ -101,81 +92,260 @@ def pick_layout(lmap, requested):
     for k, v in norm.items():
         if r in k:
             return v
-    raise SystemExit(f"Layout not found: {requested!r}. Run with 'list-layouts' to see options.")
+    raise SystemExit("Layout not found: %r. Run with 'list-layouts' to see options." % requested)
+
+
+def layout_placeholders(zin, layout_file):
+    """Parse a layout's placeholders -> list of {type, has_type, idx, cy}.
+    The template marks its main content area as a generic (typeless) placeholder."""
+    root = ET.fromstring(zin.read("ppt/slideLayouts/" + layout_file))
+    phs = []
+    for sp in root.iter("{%s}sp" % P):
+        ph = sp.find(".//{%s}nvPr/{%s}ph" % (P, P))
+        if ph is None:
+            continue
+        cy = 0
+        ext = sp.find(".//{%s}spPr/{%s}xfrm/{%s}ext" % (A, A, A))
+        if ext is not None and ext.get("cy"):
+            cy = int(ext.get("cy"))
+        phs.append({"type": ph.get("type", "body"), "has_type": ph.get("type") is not None,
+                    "idx": ph.get("idx"), "cy": cy})
+    return phs
+
+
+def pick_bindings(phs):
+    """Choose placeholders for title / subtitle / content (bullets)."""
+    title = next((p for p in phs if p["type"] in ("title", "ctrTitle")), None)
+    cands = [p for p in phs if p["type"] not in ("title", "ctrTitle", "ftr", "sldNum", "pic", "dt")]
+    subtitle_typed = next((p for p in cands if p["type"] in ("subTitle",)), None)
+    generic = [p for p in cands if not p["has_type"]]
+    content = (max(generic, key=lambda p: p["cy"]) if generic
+               else (max(cands, key=lambda p: p["cy"]) if cands else None))
+    subtitle = subtitle_typed
+    if subtitle is None:
+        for p in cands:
+            if p is not content:
+                subtitle = p
+                break
+    return title, subtitle, content
 
 
 def cite_suffix(citations):
-    return (" " + " ".join(f"[src:{c}]" for c in citations)) if citations else ""
+    return (" " + " ".join("[src:%s]" % c for c in citations)) if citations else ""
 
 
-def fill_slide(slide, spec):
-    cites = spec.get("citations", [])
+def ph_shape(shape_id, name, ph_type, ph_idx, paragraphs, emit_type=True):
+    if ph_type in ("title", "ctrTitle"):
+        ph = '<p:ph type="%s"/>' % ph_type
+    elif ph_idx is not None and emit_type and ph_type:
+        ph = '<p:ph type="%s" idx="%s"/>' % (ph_type, ph_idx)
+    elif ph_idx is not None:
+        ph = '<p:ph idx="%s"/>' % ph_idx
+    else:
+        ph = '<p:ph type="%s"/>' % (ph_type or "body")
+    paras = []
+    for text in paragraphs:
+        if text == "":
+            paras.append('<a:p><a:endParaRPr lang="en-GB"/></a:p>')
+        else:
+            paras.append('<a:p><a:r><a:rPr lang="en-GB" dirty="0"/><a:t>%s</a:t></a:r></a:p>' % esc(text))
+    if not paras:
+        paras.append('<a:p><a:endParaRPr lang="en-GB"/></a:p>')
+    return ('<p:sp><p:nvSpPr><p:cNvPr id="%d" name="%s"/>'
+            '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>'
+            '<p:nvPr>%s</p:nvPr></p:nvSpPr>'
+            '<p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>%s</p:txBody></p:sp>'
+            % (shape_id, esc(name), ph, "".join(paras)))
+
+
+def build_slide_xml(spec, phs):
+    title, subtitle, content = pick_bindings(phs)
     title_text = spec.get("title", "")
-    subtitle = spec.get("subtitle")
-    bullets = spec.get("bullets", [])
+    sub_text = spec.get("subtitle")
+    bullets = list(spec.get("bullets", []) or [])
+    cites = spec.get("citations", []) or []
+    shapes = []
+    sid = 2
 
-    # Title placeholder
-    if title_text and slide.shapes.title is not None:
-        slide.shapes.title.text = title_text
+    if title is not None and title_text:
+        shapes.append(ph_shape(sid, "Title %d" % sid, "title", title["idx"], [title_text]))
+        sid += 1
 
-    # Classify remaining placeholders
-    body_ph = None
-    subtitle_ph = None
-    for ph in slide.placeholders:
-        t = ph.placeholder_format.type
-        tname = str(t)
-        if ph == slide.shapes.title:
-            continue
-        if "SUBTITLE" in tname and subtitle_ph is None:
-            subtitle_ph = ph
-        elif any(k in tname for k in ("BODY", "OBJECT", "CONTENT", "TEXT")) and body_ph is None:
-            body_ph = ph
+    # subtitle: dedicated placeholder if present; else fold into content when no bullets
+    sub_into_content = False
+    if sub_text:
+        if subtitle is not None:
+            stext = sub_text + (cite_suffix(cites) if not bullets else "")
+            shapes.append(ph_shape(sid, "Text Placeholder %d" % sid, subtitle["type"],
+                                   subtitle["idx"], [stext], emit_type=subtitle["has_type"]))
+            sid += 1
+        elif content is not None and not bullets:
+            sub_into_content = True
 
-    if subtitle and subtitle_ph is not None:
-        subtitle_ph.text = subtitle + cite_suffix(cites if not bullets else [])
-    elif subtitle and body_ph is not None:
-        body_ph.text = subtitle
+    paras = []
+    if sub_into_content:
+        paras.append(sub_text + cite_suffix(cites))
+    if bullets:
+        if len(bullets) == 1:
+            paras.append(bullets[0] + cite_suffix(cites))
+        else:
+            paras.extend(bullets)
+            if cites:
+                paras.append("Sources:" + cite_suffix(cites))
 
-    if bullets and body_ph is not None:
-        tf = body_ph.text_frame
-        tf.text = bullets[0] + (cite_suffix(cites) if len(bullets) == 1 else "")
-        for b in bullets[1:]:
-            p = tf.add_paragraph()
-            p.text = b
-        # citation line if multiple bullets
-        if len(bullets) > 1 and cites:
-            p = tf.add_paragraph()
-            p.text = "Sources:" + cite_suffix(cites)
+    if content is not None and paras:
+        shapes.append(ph_shape(sid, "Content Placeholder %d" % sid, content["type"],
+                               content["idx"], paras, emit_type=content["has_type"]))
+        sid += 1
 
-    notes = spec.get("notes")
-    sources_note = ("Sources: " + ", ".join(cites)) if cites else ""
-    note_text = "\n".join(x for x in (notes, sources_note) if x)
-    if note_text:
-        slide.notes_slide.notes_text_frame.text = note_text
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<p:sld xmlns:a="%s" xmlns:r="%s" xmlns:p="%s"><p:cSld><p:spTree>'
+            '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
+            '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            '%s</p:spTree></p:cSld>'
+            '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>'
+            % (A, R, P, "".join(shapes)))
+
+
+def notes_xml(slide_no, note_text):
+    paras = []
+    for line in note_text.split("\n"):
+        if line.strip():
+            paras.append('<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>%s</a:t></a:r></a:p>' % esc(line))
+    if not paras:
+        return None
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<p:notes xmlns:a="%s" xmlns:r="%s" xmlns:p="%s"><p:cSld><p:spTree>'
+            '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
+            '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
+            '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+            '<p:sp><p:nvSpPr><p:cNvPr id="2" name="Notes Placeholder 2"/>'
+            '<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>'
+            '<p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>'
+            '<p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>%s</p:txBody></p:sp>'
+            '</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>'
+            % (A, R, P, "".join(paras)))
+
+
+def notesmaster_target(zin):
+    """Find the notesMaster part path so notes slides can reference it."""
+    for n in zin.namelist():
+        if re.match(r"ppt/notesMasters/notesMaster\d+\.xml$", n):
+            return os.path.basename(n)
+    return None
 
 
 def build(spec, template_path, out_override=None):
-    prs = load_template(template_path)
-    if spec.get("clear_template_slides", True):
-        clear_slides(prs)
-    lmap = layout_map(prs)
-    for s in spec.get("slides", []):
-        layout = pick_layout(lmap, s.get("layout", "Title and Content - White"))
-        slide = prs.slides.add_slide(layout)
-        fill_slide(slide, s)
+    zin = zipfile.ZipFile(template_path)
+    names = zin.namelist()
+    lmap = layout_files(zin)
+    nmaster = notesmaster_target(zin)
+
+    pres = zin.read("ppt/presentation.xml").decode("utf-8")
+    pres_rels = zin.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
+    ctypes = zin.read("[Content_Types].xml").decode("utf-8")
+
+    used = [int(m) for m in re.findall(r'Id="rId(\d+)"', pres_rels)]
+    next_rid = (max(used) + 1) if used else 1
+
+    new_slides = []   # dict per slide: part, xml, rels(list of (id,type,target)), prid, sldid, notes_part, notes_xml
+    sldid = 256
+    for i, s in enumerate(spec.get("slides", []), start=1):
+        layout_file = pick_layout(lmap, s.get("layout", DEFAULT_LAYOUT))
+        phs = layout_placeholders(zin, layout_file)
+        xml = build_slide_xml(s, phs)
+        part = "ppt/slides/slide%d.xml" % i
+
+        # slide notes (notes + source ids), if any
+        cites = s.get("citations", []) or []
+        note_parts = [x for x in (s.get("notes"),
+                                  ("Sources: " + ", ".join(cites)) if cites else "") if x]
+        nxml = notes_xml(i, "\n".join(note_parts)) if note_parts and nmaster else None
+
+        slide_rels = [("rId1", LAYOUT_REL, "../slideLayouts/" + layout_file)]
+        notes_part = None
+        if nxml is not None:
+            notes_part = "ppt/notesSlides/notesSlide%d.xml" % i
+            slide_rels.append(("rId2", NOTES_REL, "../notesSlides/notesSlide%d.xml" % i))
+
+        prid = "rId%d" % next_rid
+        next_rid += 1
+        new_slides.append({"part": part, "xml": xml, "slide_rels": slide_rels,
+                           "prid": prid, "sldid": sldid,
+                           "notes_part": notes_part, "notes_xml": nxml,
+                           "layout_file": layout_file})
+        sldid += 1
+
+    # presentation.xml: rebuild sldIdLst
+    sld_entries = "".join('<p:sldId id="%d" r:id="%s"/>' % (n["sldid"], n["prid"]) for n in new_slides)
+    if "<p:sldIdLst" in pres:
+        pres = re.sub(r"<p:sldIdLst>.*?</p:sldIdLst>", "<p:sldIdLst>%s</p:sldIdLst>" % sld_entries, pres, flags=re.S)
+    else:
+        pres = pres.replace("</p:sldMasterIdLst>", "</p:sldMasterIdLst><p:sldIdLst>%s</p:sldIdLst>" % sld_entries, 1)
+
+    # presentation rels: drop old slide rels, add new
+    pres_rels = re.sub(r'<Relationship[^>]*Type="[^"]*/slide"[^>]*/>', "", pres_rels)
+    add_rels = "".join('<Relationship Id="%s" Type="%s" Target="slides/slide%d.xml"/>'
+                       % (n["prid"], SLIDE_REL, i + 1) for i, n in enumerate(new_slides))
+    pres_rels = pres_rels.replace("</Relationships>", add_rels + "</Relationships>")
+
+    # content types: drop old slide + notes overrides, flip presentation CT, add new slides + notes
+    ctypes = re.sub(r'<Override PartName="/ppt/slides/slide\d+\.xml"[^>]*/>', "", ctypes)
+    ctypes = re.sub(r'<Override PartName="/ppt/notesSlides/notesSlide\d+\.xml"[^>]*/>', "", ctypes)
+    ctypes = ctypes.replace("presentationml.template.main+xml", "presentationml.presentation.main+xml")
+    add_ov = []
+    for n in new_slides:
+        add_ov.append('<Override PartName="/%s" ContentType="%s"/>' % (n["part"], SLIDE_CT))
+        if n["notes_part"]:
+            add_ov.append('<Override PartName="/%s" ContentType="%s"/>' % (n["notes_part"], NOTES_CT))
+    ctypes = ctypes.replace("</Types>", "".join(add_ov) + "</Types>")
+
     out = out_override or spec.get("output", "deck.pptx")
     if not os.path.isabs(out):
         out = os.path.join(os.getcwd(), out)
-    prs.save(out)
-    return out, len(spec.get("slides", []))
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+
+    existing_slides = [x for x in names if re.match(r"ppt/slides/slide\d+\.xml$", x)]
+    existing_notes = [x for x in names if re.match(r"ppt/notesSlides/notesSlide\d+\.xml$", x)]
+    drop = set(existing_slides) | set(existing_notes)
+    drop |= {"ppt/slides/_rels/%s.rels" % os.path.basename(s) for s in existing_slides}
+    drop |= {"ppt/notesSlides/_rels/%s.rels" % os.path.basename(s) for s in existing_notes}
+    drop |= {"ppt/presentation.xml", "ppt/_rels/presentation.xml.rels", "[Content_Types].xml"}
+
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename in drop:
+                continue
+            zout.writestr(item, zin.read(item.filename))
+        zout.writestr("[Content_Types].xml", ctypes)
+        zout.writestr("ppt/presentation.xml", pres)
+        zout.writestr("ppt/_rels/presentation.xml.rels", pres_rels)
+        for n in new_slides:
+            zout.writestr(n["part"], n["xml"])
+            rels = "".join('<Relationship Id="%s" Type="%s" Target="%s"/>' % r for r in n["slide_rels"])
+            zout.writestr("ppt/slides/_rels/%s.rels" % os.path.basename(n["part"]),
+                          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                          '<Relationships xmlns="%s">%s</Relationships>' % (PR, rels))
+            if n["notes_part"]:
+                zout.writestr(n["notes_part"], n["notes_xml"])
+                nrels = ('<Relationship Id="rId1" Type="%s" Target="../slides/%s"/>'
+                         % (SLIDE_REL, os.path.basename(n["part"])))
+                nrels += ('<Relationship Id="rId2" Type="%s" Target="../notesMasters/%s"/>'
+                          % (NOTESMASTER_REL, nmaster))
+                zout.writestr("ppt/notesSlides/_rels/%s.rels" % os.path.basename(n["notes_part"]),
+                              '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+                              '<Relationships xmlns="%s">%s</Relationships>' % (PR, nrels))
+    zin.close()
+    return out, len(new_slides)
 
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "list-layouts":
         tpl = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TEMPLATE
-        prs = load_template(tpl)
-        for name in sorted(layout_map(prs)):
-            print(name)
+        with zipfile.ZipFile(tpl) as z:
+            for name in sorted(layout_files(z)):
+                print(name)
         return
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
@@ -184,7 +354,7 @@ def main():
     args = ap.parse_args()
     spec = json.load(open(args.spec))
     out, n = build(spec, args.template, args.out)
-    print(f"Wrote {out} ({n} slides) from {os.path.basename(args.template)}")
+    print("Wrote %s (%d slides) from %s" % (out, n, os.path.basename(args.template)))
 
 
 if __name__ == "__main__":

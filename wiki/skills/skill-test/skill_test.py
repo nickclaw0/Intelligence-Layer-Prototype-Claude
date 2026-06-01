@@ -10,9 +10,12 @@ lint any SKILL.md frontmatter.
 Usage:
     python3 skill_test.py <skill-dir-name|all>
 """
-import sys, os, json, subprocess, tempfile, glob
+import sys, os, json, subprocess, tempfile, glob, zipfile, re
+import xml.etree.ElementTree as ET
 
 SKILLS_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 REQUIRED_FRONTMATTER = ["name", "description", "triggers", "required_tools", "outputs", "sensitivity"]
 
 
@@ -45,17 +48,65 @@ def run_builder(skill_dir, builder, validator):
 
 
 def validate_pptx(path):
-    from pptx import Presentation
-    p = Presentation(path)
-    n = len(list(p.slides))
-    return [] if n > 0 else ["deck has no slides"]
+    """Pure-stdlib structural check: valid zip, every part parses, the presentation
+    is a real presentation (not a template), and the slide list is non-empty with
+    each referenced slide part present."""
+    problems = []
+    try:
+        z = zipfile.ZipFile(path)
+    except Exception as e:
+        return ["output is not a valid zip: %s" % e]
+    if z.testzip() is not None:
+        problems.append("zip has a corrupt member")
+    names = set(z.namelist())
+    for n in (n for n in names if n.endswith(".xml") or n.endswith(".rels")):
+        try:
+            ET.fromstring(z.read(n))
+        except Exception as e:
+            problems.append("part does not parse: %s (%s)" % (n, e))
+    ct = z.read("[Content_Types].xml").decode("utf-8")
+    if "presentationml.presentation.main+xml" not in ct:
+        problems.append("presentation content-type not flipped to a presentation")
+    pres = ET.fromstring(z.read("ppt/presentation.xml"))
+    sldlst = pres.find("{%s}sldIdLst" % P_NS)
+    ids = list(sldlst) if sldlst is not None else []
+    if not ids:
+        problems.append("deck has no slides")
+    rels = z.read("ppt/_rels/presentation.xml.rels").decode("utf-8")
+    relmap = dict(re.findall(r'Id="(rId\d+)"[^>]*Target="([^"]+)"', rels))
+    rkey = "{%s}id" % "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    for sid in ids:
+        tgt = relmap.get(sid.get(rkey))
+        if not tgt or ("ppt/" + tgt) not in names:
+            problems.append("slide reference %s does not resolve to a part" % sid.get(rkey))
+    return problems
 
 
 def validate_docx(path):
-    from docx import Document
-    d = Document(path)
-    n = len([p for p in d.paragraphs if p.text.strip()])
-    return [] if n > 0 else ["document has no content paragraphs"]
+    """Pure-stdlib structural check: valid zip, every part parses, the body has
+    at least one non-empty paragraph, and the section properties (header/footer
+    wiring) survive."""
+    problems = []
+    try:
+        z = zipfile.ZipFile(path)
+    except Exception as e:
+        return ["output is not a valid zip: %s" % e]
+    if z.testzip() is not None:
+        problems.append("zip has a corrupt member")
+    for n in (n for n in z.namelist() if n.endswith(".xml") or n.endswith(".rels")):
+        try:
+            ET.fromstring(z.read(n))
+        except Exception as e:
+            problems.append("part does not parse: %s (%s)" % (n, e))
+    root = ET.fromstring(z.read("word/document.xml"))
+    body = root.find("{%s}body" % W_NS)
+    paras = body.findall("{%s}p" % W_NS) if body is not None else []
+    nonempty = [p for p in paras if "".join(t.text or "" for t in p.iter("{%s}t" % W_NS)).strip()]
+    if not nonempty:
+        problems.append("document has no content paragraphs")
+    if body is None or body.find("{%s}sectPr" % W_NS) is None:
+        problems.append("document lost its section properties (header/footer wiring)")
+    return problems
 
 
 BUILDERS = {

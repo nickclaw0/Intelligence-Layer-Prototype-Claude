@@ -21,13 +21,11 @@ different transport.
 - Groups the nav by page type (schema, index, sources, synthesis, skills, log, and the entity/concept/project/decision sections as they fill in).
 - The landing route (`/` and `/graph`) is an Obsidian-style association graph: a self-contained, dependency-free SVG force simulation where nodes are wiki pages and edges are the links between them (WikiLinks, `related:`, and `^[src:...]` citations resolved to their source page). Node size scales with connection count, hover highlights neighbours, drag pins a node, scroll zooms, and clicking a node opens the page. The `index` is kept as a node but contributes no outbound edges, so it stays present without dominating the layout; unresolved link targets render as distinct hollow nodes.
 
-## Confidentiality (why it is auth-gated)
+## Access
 
-The wiki is client-confidential, so the viewer must never serve to an
-unauthenticated audience. The Worker enforces HTTP Basic Auth and **fails
-closed**: if the `VIEWER_USER` / `VIEWER_PASS` secret bindings are absent it
-returns 503 and serves nothing. Credentials live as Worker secrets, never in
-code or git. Pages send `noindex` / `no-store` headers.
+The viewer is public by site owner request. Do not re-add HTTP Basic Auth or
+`VIEWER_USER` / `VIEWER_PASS` bindings when redeploying. Pages still send
+`noindex` / `no-store` headers.
 
 ## Deployment
 
@@ -36,15 +34,14 @@ Deployed via the Cloudflare REST API (no `wrangler`, no Node):
 - Worker / dashboard tile: `intelligence-layer-prototype-claude`
 - workers.dev URL: `https://intelligence-layer-prototype-claude.nateclaw0.workers.dev`
 - Custom domain: `https://intelligence-layer.nateclaw.com`
-- Auth: HTTP Basic Auth; user `velorixa`, password held as a Worker secret. Both URLs route to the same Worker and fail closed identically.
+- Auth: none. Both URLs route to the same Worker without a username/password prompt.
 
 Redeploy after editing the wiki:
 
 1. `python3 viewer/build_viewer.py`
-2. `PUT /accounts/{account_id}/workers/scripts/intelligence-layer-prototype-claude` with `worker.js` as the module and the `VIEWER_USER` / `VIEWER_PASS` secret_text bindings.
+2. `PUT /accounts/{account_id}/workers/scripts/intelligence-layer-prototype-claude` with `worker.js` as the module and no Basic Auth bindings.
 
-Or do both in one step with the deploy helper, which preserves the secrets via
-`inherit` bindings (so it never needs their values) and reads the API token from
+Or do both in one step with the deploy helper, which reads the API token from
 the environment:
 
 ```

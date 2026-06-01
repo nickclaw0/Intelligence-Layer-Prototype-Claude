@@ -33,14 +33,14 @@ connector-skill/    browser-installable access skill on the GitHub + Google Driv
 | 1 | Raw / ingest convention (Layer 0, Drive) | done |
 | 2 | Wiki scaffold (Layer 1) | done |
 | 3 | n8n ingest pipeline | seed batch filed: 31 raw sources in Drive + manifest (`ingest/file_seed_batch.py`); go-forward workflow **created live** in the n8n instance via the public API (`Intelligence Layer Prototype Claude`, id `DtkNEcdolxsSIpHs`, inactive); Drive OAuth on its 5 Drive nodes + the `REPLACE_WITH_*` IDs/PAT + a manual test remain before activation (see `ingest/README.md`) |
-| 4 | Skills / Avalere generators (Layer 3) | done |
+| 4 | Skills / Avalere generators (Layer 3) | done; five skills under `wiki/skills/`, engines are pure standard library (zipfile + xml.etree, no pip installs on Python 3.9), all pass `skill_test.py all` and `skill_creator.py lint all`, and `build_deck.py` / `build_doc.py` produce valid on-brand PPTX/DOCX from the pinned Avalere templates |
 | 5 | Wiki viewer | built + deployed (auth-gated Cloudflare Worker); Obsidian-style association graph; custom domain `intelligence-layer.nateclaw.com`; auto-resyncs from the wiki via the daily lint |
 | 6 | Lint | `daily_lint.py` (incremental) + `full_sweep.py` (whole-wiki); scheduled as the remote Claude routine `velorixa-daily-lint` (id `trig_014bDabKh7nT66xBbvPbJhVH`, 05:00 UTC daily) — pending a GitHub re-auth so the cloud env can clone the repo (see `lint/routine.md`) |
 | 7 | Installable access skill + MCP connector | done (`access-skill/`, `connector-skill/`) |
 
 ## Open items (handoff)
 
-What a maintainer picking this up should know is outstanding, as of 2026-05-31:
+What a maintainer picking this up should know is outstanding, as of 2026-06-01:
 
 - **n8n ingest pipeline — created, not yet live.** The workflow `Intelligence Layer Prototype Claude` (id `DtkNEcdolxsSIpHs`) exists in the n8n instance, inactive. Before activating: attach a Google Drive OAuth credential to its 5 Drive nodes (trigger + 4 actions), fill the four `REPLACE_WITH_*` values (three Drive IDs + a GitHub fine-grained PAT with `contents:write`), run one manual test, then activate. Step-by-step in `ingest/README.md`.
 - **Daily lint — scheduled, blocked on GitHub auth.** The remote Claude routine `velorixa-daily-lint` (id `trig_014bDabKh7nT66xBbvPbJhVH`, 05:00 UTC daily, NateClaw cloud env) is created and enabled, but a verification run returned `github_repo_access_denied`. Re-authorize the Claude GitHub App for `nickclaw0/Intelligence-Layer-Prototype-Claude` on that environment, then trigger a run to confirm. Because it runs in the cloud it reads the Drive manifest via the Google Drive connector and does **not** redeploy the viewer (no Cloudflare token in the cloud env) — viewer resync stays local, via `viewer/deploy_viewer.py` or the local lint hook.

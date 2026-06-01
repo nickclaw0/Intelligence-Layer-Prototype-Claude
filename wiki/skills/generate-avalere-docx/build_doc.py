@@ -3,9 +3,17 @@
 generate-avalere-docx build engine (template-as-base).
 
 Starts from the pinned Avalere Word template, clears its demo body content while
-keeping the section properties (so headers, footers, and the embedded logo are
+keeping the section properties (so the header, footers, and the embedded logo are
 preserved), and adds paragraphs using the template's own named styles. The brand
 comes from the template's styles and theme, never from ad-hoc formatting.
+
+Pure standard library (zipfile + regex over word/document.xml): the runtime here
+is Python 3.9 with no third-party packages and no network, and a teammate cloning
+the repo should not have to install anything. We open the .docx as a zip, keep
+every part byte-for-byte except word/document.xml, and inside that part we replace
+only the body paragraphs, leaving the trailing <w:sectPr> (which wires the
+header/footers and page setup) and every other part untouched. That is what keeps
+header1, footer1, footer2, and the logo media alive in the output.
 
 Usage:
     python3 build_doc.py <spec.json> [--template <path>] [--out <path>]
@@ -15,21 +23,29 @@ Spec JSON shape:
 {
   "output": "doc.docx",
   "blocks": [
-    {"style": "Title",     "text": "Velorixa"},
-    {"style": "Subtitle",  "text": "Brand strategy kickoff recap"},
-    {"style": "Heading 1", "text": "Brand ambition"},
-    {"style": "Normal",    "text": "The core pressure is clarity.", "citations": ["623851f2"]},
-    {"style": "List Bullet","text": "Four phases ...", "citations": ["623851f2"]}
-  ]
+    {"style": "Title",      "text": "Velorixa"},
+    {"style": "Subtitle",   "text": "Brand strategy kickoff recap"},
+    {"style": "Heading 1",  "text": "Brand ambition"},
+    {"style": "Normal",     "text": "The core pressure is clarity.", "citations": ["623851f2"]},
+    {"style": "List Bullet", "text": "Four phases ...", "citations": ["623851f2"]}
+  ],
+  "clear_template_body": true
 }
-"""
-import sys, os, json, argparse, re
 
-from docx import Document
-from docx.oxml.ns import qn
+Style names are matched dash- and case-insensitively against the template's own
+named styles (use list-styles to print them). Citations render inline as [src:id].
+"""
+import sys, os, json, argparse, zipfile, re
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TEMPLATE = os.path.normpath(os.path.join(HERE, "..", "_assets", "Avalere_Doc_template.docx"))
+
+W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+
+def esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
 def _norm(s):
@@ -37,69 +53,98 @@ def _norm(s):
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
-def style_index(doc):
-    """Map normalised style name and style_id -> actual style name python-docx accepts."""
-    idx = {}
-    for st in doc.styles:
-        try:
-            nm = st.name
-        except Exception:
-            nm = None
+def read_styles(zin):
+    """Return (rows, resolver-maps).
+    rows: list of (type, styleId, name) for list-styles.
+    by_name / by_id: normalised name/styleId -> styleId."""
+    root = ET.fromstring(zin.read("word/styles.xml"))
+    rows = []
+    by_name = {}
+    by_id = {}
+    for st in root.findall("{%s}style" % W):
+        sid = st.get("{%s}styleId" % W)
+        typ = st.get("{%s}type" % W)
+        nm_el = st.find("{%s}name" % W)
+        nm = nm_el.get("{%s}val" % W) if nm_el is not None else sid
+        rows.append((typ, sid, nm))
         if nm:
-            idx[_norm(nm)] = nm
-        if getattr(st, "style_id", None):
-            idx.setdefault(_norm(st.style_id), nm or st.style_id)
-    return idx
+            by_name[_norm(nm)] = sid
+        if sid:
+            by_id.setdefault(_norm(sid), sid)
+    return rows, by_name, by_id
 
 
-def resolve_style(idx, requested, default="Normal"):
+def resolve_style(by_name, by_id, requested, default="Normal"):
     r = _norm(requested)
-    if r in idx:
-        return idx[r]
-    for k, v in idx.items():
+    if r in by_name:
+        return by_name[r]
+    if r in by_id:
+        return by_id[r]
+    for k, v in by_name.items():
         if r in k:
             return v
     return default
 
 
-def clear_body(doc):
-    """Remove existing body content but keep the trailing sectPr (headers/footers/logo, page setup)."""
-    body = doc.element.body
-    for child in list(body):
-        if child.tag == qn("w:sectPr"):
-            continue
-        body.remove(child)
-
-
 def cite_suffix(citations):
-    return (" " + " ".join(f"[src:{c}]" for c in citations)) if citations else ""
+    return (" " + " ".join("[src:%s]" % c for c in citations)) if citations else ""
+
+
+def paragraph_xml(style_id, text):
+    return ('<w:p><w:pPr><w:pStyle w:val="%s"/></w:pPr>'
+            '<w:r><w:t xml:space="preserve">%s</w:t></w:r></w:p>'
+            % (esc(style_id), esc(text)))
 
 
 def build(spec, template_path, out_override=None):
-    doc = Document(template_path)
-    idx = style_index(doc)
-    if spec.get("clear_template_body", True):
-        clear_body(doc)
+    zin = zipfile.ZipFile(template_path)
+    rows, by_name, by_id = read_styles(zin)
+
+    doc = zin.read("word/document.xml").decode("utf-8")
+
+    # locate the body content region: just after <w:body ...> up to the body-level <w:sectPr ...>
+    bm = re.search(r"<w:body[^>]*>", doc)
+    if not bm:
+        raise SystemExit("template has no <w:body>")
+    body_start = bm.end()
+    sect_start = doc.rfind("<w:sectPr")
+    if sect_start == -1:
+        raise SystemExit("template has no body-level <w:sectPr>")
+
+    paras = []
     for block in spec.get("blocks", []):
-        style = resolve_style(idx, block.get("style", "Normal"))
-        text = block.get("text", "") + cite_suffix(block.get("citations", []))
-        doc.add_paragraph(text, style=style)
+        style_id = resolve_style(by_name, by_id, block.get("style", "Normal"))
+        text = block.get("text", "") + cite_suffix(block.get("citations", []) or [])
+        paras.append(paragraph_xml(style_id, text))
+    new_body = "".join(paras)
+
+    if not spec.get("clear_template_body", True):
+        new_body = doc[body_start:sect_start] + new_body
+
+    doc_out = doc[:body_start] + new_body + doc[sect_start:]
+
     out = out_override or spec.get("output", "document.docx")
     if not os.path.isabs(out):
         out = os.path.join(os.getcwd(), out)
-    doc.save(out)
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename == "word/document.xml":
+                zout.writestr(item, doc_out)
+            else:
+                zout.writestr(item, zin.read(item.filename))
+    zin.close()
     return out, len(spec.get("blocks", []))
 
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "list-styles":
         tpl = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TEMPLATE
-        doc = Document(tpl)
-        for st in doc.styles:
-            try:
-                print(f"{st.type}\t{st.style_id}\t{st.name}")
-            except Exception:
-                pass
+        with zipfile.ZipFile(tpl) as z:
+            rows, _, _ = read_styles(z)
+            for typ, sid, nm in rows:
+                print("%s\t%s\t%s" % (typ, sid, nm))
         return
     ap = argparse.ArgumentParser()
     ap.add_argument("spec")
@@ -108,7 +153,7 @@ def main():
     args = ap.parse_args()
     spec = json.load(open(args.spec))
     out, n = build(spec, args.template, args.out)
-    print(f"Wrote {out} ({n} blocks) from {os.path.basename(args.template)}")
+    print("Wrote %s (%d blocks) from %s" % (out, n, os.path.basename(args.template)))
 
 
 if __name__ == "__main__":
