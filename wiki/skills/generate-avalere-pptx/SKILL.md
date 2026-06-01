@@ -30,9 +30,16 @@ Produce a deck in the Avalere PowerPoint template, built on the anthropics/skill
 - Engine: `build_deck.py`.
 - Layout catalogue: `layout_catalogue.md`. The engine also reads layout names from the template at build time, so the catalogue is a reference, not the source of truth.
 
-## Running on Claude.ai (bundled, in code execution)
+## Running on Claude.ai (in code execution)
 
-When this skill is installed on Claude.ai, it is self-contained: `build_deck.py` plus the pinned template under `assets/`. It runs in the code-execution sandbox with no install step (pure standard library on Python 3.9+). The flow: read the wiki for the content and its source IDs (via the connectors or the query skill), write the spec JSON, run `python3 build_deck.py spec.json --out deck.pptx`, and return the resulting branded `.pptx`. The template is read from the bundle, so the output is always on-brand.
+When this skill is installed on Claude.ai it runs in the code-execution sandbox with no install step (pure standard library on Python 3.9+). The flow: read the wiki for the content and its source IDs (via the connectors or the query skill), write the spec JSON, run `python3 build_deck.py spec.json --out deck.pptx`, and return the resulting branded `.pptx`.
+
+The engine resolves the pinned template in this order: a co-located `assets/Avalere_PPT_template.potx` (offline bundle) or the repo's `../_assets/`, and if neither exists it downloads the canonical template once from the public repo (`AVALERE_PPTX_TEMPLATE_URL`, default `raw.githubusercontent.com/.../wiki/skills/_assets/Avalere_PPT_template.potx`) and caches it under the temp dir. So two bundle shapes work:
+
+- **Slim** (`velorixa-avalere-pptx-skill.zip`, ~10 KB): no template; the engine pulls it from the public repo at first build, so it is always current and never drifts. Needs the sandbox to allow outbound network to `raw.githubusercontent.com`.
+- **Offline** (`velorixa-avalere-pptx-skill-offline.zip`, ~3.5 MB): ships the template under `assets/`; works with no network. Use this if code execution blocks egress.
+
+Either way the output is on-brand because the bytes are the same pinned template.
 
 ## How to build
 

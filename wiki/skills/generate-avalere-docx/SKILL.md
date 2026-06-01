@@ -28,9 +28,11 @@ Produce a document in the Avalere Word template, built on the anthropics/skills 
 - Engine: `build_doc.py`.
 - Style reference: `styles_reference.md`. The engine also reads style names from the template at build time.
 
-## Running on Claude.ai (bundled, in code execution)
+## Running on Claude.ai (in code execution)
 
-When this skill is installed on Claude.ai, it is self-contained: `build_doc.py` plus the pinned template under `assets/`. It runs in the code-execution sandbox with no install step (pure standard library on Python 3.9+). The flow: read the wiki for the content and its source IDs (via the connectors or the query skill), write the spec JSON, run `python3 build_doc.py spec.json --out document.docx`, and return the resulting branded `.docx`.
+When this skill is installed on Claude.ai it runs in the code-execution sandbox with no install step (pure standard library on Python 3.9+). The flow: read the wiki for the content and its source IDs (via the connectors or the query skill), write the spec JSON, run `python3 build_doc.py spec.json --out document.docx`, and return the resulting branded `.docx`.
+
+The engine resolves the pinned template in this order: a co-located `assets/Avalere_Doc_template.docx` (bundled) or the repo's `../_assets/`, and if neither exists it downloads the canonical template once from the public repo (`AVALERE_DOCX_TEMPLATE_URL`, default `raw.githubusercontent.com/.../wiki/skills/_assets/Avalere_Doc_template.docx`) and caches it under the temp dir. The shipped bundle (`velorixa-avalere-docx-skill.zip`, ~88 KB) embeds the template under `assets/` so it works with no network; the download path is just a fallback if the template is ever missing. The Word template is small enough that there is no slim variant, unlike the PowerPoint skill. Either way the output is on-brand because the bytes are the same pinned template.
 
 ## How to build
 

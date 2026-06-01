@@ -35,7 +35,7 @@ Spec JSON shape:
 Style names are matched dash- and case-insensitively against the template's own
 named styles (use list-styles to print them). Citations render inline as [src:id].
 """
-import sys, os, json, argparse, zipfile, re
+import sys, os, json, argparse, zipfile, re, tempfile, urllib.request
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +57,41 @@ def _find_template(filename):
 
 
 DEFAULT_TEMPLATE = _find_template("Avalere_Doc_template.docx")
+
+# Canonical template in the public repo, used only when no local copy is bundled
+# (e.g. a slim skill bundle). Override with the env var if the repo or path moves.
+TEMPLATE_URL = os.environ.get(
+    "AVALERE_DOCX_TEMPLATE_URL",
+    "https://raw.githubusercontent.com/nickclaw0/Intelligence-Layer-Prototype-Claude/"
+    "main/wiki/skills/_assets/Avalere_Doc_template.docx",
+)
+
+
+def _ensure_template(path):
+    """Return a readable template path. Local files always win: a bundled or repo
+    template is used as-is and the engine works fully offline. Only when no local
+    template exists (a slim bundle) do we fetch the canonical one from the public
+    repo and cache it, so the template is never embedded yet never drifts."""
+    if path and os.path.exists(path):
+        return path
+    if not TEMPLATE_URL:
+        raise SystemExit("template not found at %s and AVALERE_DOCX_TEMPLATE_URL is empty." % path)
+    cache_dir = os.path.join(tempfile.gettempdir(), "velorixa-avalere-assets")
+    cache = os.path.join(cache_dir, os.path.basename(path) or "Avalere_Doc_template.docx")
+    if os.path.exists(cache) and os.path.getsize(cache) > 0:
+        return cache
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        urllib.request.urlretrieve(TEMPLATE_URL, cache)
+    except Exception as e:
+        raise SystemExit(
+            "template not found locally and could not be fetched from %s: %s. Run where "
+            "outbound network to raw.githubusercontent.com is allowed, set AVALERE_DOCX_TEMPLATE_URL, "
+            "or install the offline skill bundle that ships the template under assets/." % (TEMPLATE_URL, e)
+        )
+    if not (os.path.exists(cache) and os.path.getsize(cache) > 0):
+        raise SystemExit("template download from %s produced no file." % TEMPLATE_URL)
+    return cache
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -114,6 +149,7 @@ def paragraph_xml(style_id, text):
 
 
 def build(spec, template_path, out_override=None):
+    template_path = _ensure_template(template_path)
     zin = zipfile.ZipFile(template_path)
     rows, by_name, by_id = read_styles(zin)
 
@@ -157,7 +193,7 @@ def build(spec, template_path, out_override=None):
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "list-styles":
-        tpl = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TEMPLATE
+        tpl = _ensure_template(sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TEMPLATE)
         with zipfile.ZipFile(tpl) as z:
             rows, _, _ = read_styles(z)
             for typ, sid, nm in rows:
