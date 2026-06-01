@@ -15,12 +15,14 @@ A citation matches a manifest source by exact id, short_ref, or unique id prefix
 """
 import sys, os, json, re, argparse
 
-# Environment default; in production the orchestration layer supplies the manifest path.
-DEFAULT_MANIFEST = os.environ.get(
-    "RAW_MANIFEST",
-    "/Users/Aitesting/Library/CloudStorage/GoogleDrive-nicolasgchr@gmail.com/"
-    ".shortcut-targets-by-id/1QflKW2ZIKTW9ppldBWKpV0xwPK6Yjl04/"
-    "Intelligence Layer Prototype_Claude_v1/raw/_manifest.json",
+# The manifest lives in Layer 0 (Google Drive), outside this repo, so the path is
+# machine-specific. Supply it per-device with the RAW_MANIFEST env var or --manifest.
+# No hardcoded default: a stale absolute path silently resolves nothing on a teammate's box.
+DEFAULT_MANIFEST = os.environ.get("RAW_MANIFEST", "")
+
+MANIFEST_HINT = (
+    "set the RAW_MANIFEST env var or pass --manifest; the manifest lives in the "
+    "Google Drive folder 'Intelligence Layer Prototype_Claude_v1' at raw/_manifest.json"
 )
 
 CITE_RE = re.compile(r"\^?\[src:([^\]]+)\]")
@@ -115,9 +117,13 @@ def main():
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
     ap.add_argument("--format", choices=["json", "md"], default="json")
     args = ap.parse_args()
-    manifest = load_manifest(args.manifest)
-    if manifest is None:
-        sys.stderr.write(f"warning: manifest not found at {args.manifest}; citations will be unresolved\n")
+    if not args.manifest:
+        sys.stderr.write(f"warning: no manifest path given; {MANIFEST_HINT}. Citations will be unresolved.\n")
+        manifest = None
+    else:
+        manifest = load_manifest(args.manifest)
+        if manifest is None:
+            sys.stderr.write(f"warning: manifest not found at {args.manifest}; {MANIFEST_HINT}. Citations will be unresolved.\n")
     report = build_report(args.target, manifest)
     print(json.dumps(report, indent=2) if args.format == "json" else to_md(report))
 
