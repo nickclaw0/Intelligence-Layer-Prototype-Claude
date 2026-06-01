@@ -1,8 +1,8 @@
 ---
 name: velorixa-intelligence-layer
-description: Query the Velorixa Intelligence Layer wiki (Layer 1) with provenance, sensitivity gating, and tenant scope, using the GitHub and Google Drive connectors. Cite every claim. Refuse cross-tenant requests.
+description: Query the Velorixa Intelligence Layer wiki (Layer 1) with provenance, sensitivity gating, and tenant scope, using the GitHub and Google Drive connectors, and produce on-brand Avalere PowerPoint/Word deliverables by pulling the Avalere generator and its pinned template from the wiki git. This is the only skill to install; it never uses a generic deck or document maker. Cite every claim. Refuse cross-tenant requests.
 triggers:
-  - query_patterns: ["velorixa", "VLX", "the intelligence layer", "the wiki", "what did we decide", "what does the wiki say"]
+  - query_patterns: ["velorixa", "VLX", "the intelligence layer", "the wiki", "what did we decide", "what does the wiki say", "build a deck", "make a deck", "create a deck", "deck about", "make a presentation", "presentation about", "powerpoint", "power point", "ppt", "pptx", "slide deck", "slides for", "avalere deck", "write a document", "word doc", "word document", "docx", "one-pager", "one pager", "recap document", "write-up", "brief"]
 required_connectors:
   - github
   - google_drive
@@ -12,7 +12,9 @@ sensitivity: inherits_from_wiki
 
 # Velorixa Intelligence Layer access skill
 
-This skill lets you query the Velorixa Intelligence Layer wiki (Layer 1, in GitHub) and drop to its raw sources (Layer 0, in Google Drive) when needed. It is the browser-installable, connector-based variant of `access-skill/`. Same rules, same cascade, different transport.
+This skill lets you query the Velorixa Intelligence Layer wiki (Layer 1, in GitHub), drop to its raw sources (Layer 0, in Google Drive) when needed, and produce on-brand Avalere PowerPoint and Word deliverables by pulling the Avalere generator engine and its pinned template straight from the wiki git and running them in code execution. It is the browser-installable, connector-based variant of `access-skill/`. Same rules, same cascade, different transport.
+
+**This is the only skill you install on Claude.ai.** Everything else it needs, including the Avalere PowerPoint and Word generators, it fetches from the wiki git at the moment it is needed. Do not install a separate deck or document skill, and never fall back to a generic or built-in PowerPoint/Word maker. Branded deliverables come only from the Avalere engine in the wiki git.
 
 The schema at `wiki/CLAUDE.md` is the highest-weight document in the system. Load it at session start and follow it verbatim. When this skill body and the loaded schema disagree, the schema wins.
 
@@ -66,12 +68,30 @@ Most queries resolve at step 5. Drop to raw only when needed.
 
 ## Producing a deck or document
 
-When the request is for a PowerPoint, deck, slides, Word document, one-pager, or recap, the answer is a branded file, not prose. Always produce it with the companion Avalere skill, never by hand and never as a generic deck:
+When the request is for a PowerPoint, deck, slides, Word document, one-pager, or recap, the answer is a branded file, not prose, and it is built with the Avalere generator from the wiki git, run in code execution. You do not install a separate generator skill and you never use a generic or built-in deck/doc maker. This one skill pulls the Avalere engine and its pinned Avalere template from the public repo and runs them.
 
 1. Run the cascade above to gather the content and, for every claim, its source id.
-2. Hand off to the matching skill: **`generate-avalere-pptx`** for any PowerPoint, **`generate-avalere-docx`** for any Word document. Each is an installable skill in the Drive project folder that runs in code execution. The PowerPoint skill ships in two shapes: a slim `velorixa-avalere-pptx-skill.zip` (~10 KB) whose engine pulls the pinned template from the public repo at first build, and an offline `velorixa-avalere-pptx-skill-offline.zip` (~3.5 MB) that embeds the template for sandboxes with no network egress. The Word skill `velorixa-avalere-docx-skill.zip` (~88 KB) embeds its template directly.
-3. Give it a spec whose every factual claim carries a source id. The deck spec is `{title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}`; the doc spec is `{blocks:[{style, text, citations?}]}`. The generator renders citations inline as `[src:id]`.
-4. The output inherits the highest classification of any source it cites. If the matching generator skill is not installed, say so and stop; do not improvise an off-brand file.
+2. **Pull the Avalere engine from the wiki git** into the code-execution sandbox. Each engine is a single self-contained Python file (pure standard library, no installs):
+   - PowerPoint: `wiki/skills/generate-avalere-pptx/build_deck.py`
+   - Word: `wiki/skills/generate-avalere-docx/build_doc.py`
+
+   Fetch the raw file from the public repo, for example:
+   ```python
+   import urllib.request
+   base = "https://raw.githubusercontent.com/nickclaw0/Intelligence-Layer-Prototype-Claude/main/wiki/skills"
+   urllib.request.urlretrieve(base + "/generate-avalere-pptx/build_deck.py", "build_deck.py")
+   ```
+   (or read the file with the GitHub connector's file-contents tool and write it out). Do not write your own renderer.
+3. **Write a spec JSON** whose every factual claim carries a source id. Deck spec: `{title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}`. Doc spec: `{blocks:[{style, text, citations?}]}`. The engine renders citations inline as `[src:id]`. To see the deck's layout names first, run `python3 build_deck.py list-layouts`.
+4. **Run the engine** in code execution:
+   ```
+   python3 build_deck.py spec.json --out deck.pptx
+   python3 build_doc.py  spec.json --out document.docx
+   ```
+   On first run the engine fetches the pinned Avalere template from the same public repo and caches it, so the output is on-brand without any template bundled here. Return the resulting `.pptx` / `.docx`.
+5. The output inherits the highest classification of any source it cites.
+
+This path needs the sandbox to allow outbound network to `raw.githubusercontent.com` (to pull the engine and the template). If that egress is blocked, install the offline Avalere bundle from the Drive project folder (`velorixa-avalere-pptx-skill-offline.zip` / `velorixa-avalere-docx-skill.zip`), which ships the engine and template, and run it the same way. Either path uses the Avalere engine and the pinned Avalere template; never substitute a generic builder, and if the engine cannot be fetched or run, say so and stop rather than producing an off-brand file.
 
 ## Hard rules
 
@@ -83,7 +103,7 @@ These mirror `wiki/CLAUDE.md`. The schema you load at step 1 is authoritative.
 - **MLR escalation.** Anything medical, legal, or regulatory pauses for human review. Do not answer free-hand. Surface the question and stop.
 - **Off-label and safety.** Never extrapolate beyond approved indications. Never invent efficacy claims. Never aggregate safety data without explicit human approval. When uncertain about a safety or claims question, escalate by default.
 - **Contradictions.** If new material contradicts three or more existing sources, surface the contradiction for human review rather than resolving it.
-- **Deliverables only via the Avalere skills.** A PowerPoint is produced solely by the Avalere PPT skill (`generate-avalere-pptx`), a Word document solely by the Avalere DOCX skill (`generate-avalere-docx`). Never hand-build a deck or document, never fall back to a generic or off-brand template, and never hand the content back in another format to sidestep them. Install those two skills alongside this one from the Drive project folder: the PPT skill as the slim `velorixa-avalere-pptx-skill.zip` (pulls the pinned template from the public repo at build) or the offline `velorixa-avalere-pptx-skill-offline.zip` (template embedded, no network needed), and the DOCX skill as `velorixa-avalere-docx-skill.zip` (template embedded). Each runs in code execution with no install step. This query skill gathers the cited wiki content and hands a spec to the matching generator skill. If that generator skill is not installed, say so and stop rather than improvising an off-brand file.
+- **Deliverables only via the Avalere generator from the wiki git.** A PowerPoint is produced solely by the Avalere PPT engine (`wiki/skills/generate-avalere-pptx/build_deck.py`), a Word document solely by the Avalere DOCX engine (`wiki/skills/generate-avalere-docx/build_doc.py`), each pulled from the public wiki repo and run in code execution. The engine self-fetches the pinned Avalere template from the same repo. Never hand-build a deck or document, never use a generic or built-in PowerPoint/Word generator, never fall back to an off-brand template, and never hand the content back in another format to sidestep the engine. You do not install a separate generator skill: this single skill fetches the engine and template from git when a deliverable is requested. If the sandbox blocks egress to `raw.githubusercontent.com`, the offline Avalere bundles on Drive ship the engine + template as a fallback, run the same way. This skill gathers the cited wiki content and feeds the engine a spec; if the engine cannot be fetched or run, say so and stop rather than improvising an off-brand file.
 - **Read-only.** This skill never edits the wiki, the manifest, or any raw file. The maintainer agent (separate, on the repo) commits wiki changes.
 
 ## House style
@@ -98,8 +118,9 @@ The skill is correctly installed and behaving when, in a fresh chat:
 2. It answers a wiki-supported question (for example, "what was the kickoff brand ambition?") with at least one `[claim]^[src:<id>]` citation, with no claim left uncited.
 3. For a question that needs raw detail beyond the source page summary, it uses the Drive connector to fetch `raw/_manifest.json`, resolves the id, confirms the entry's `client` is `velorixa`, reads the file, and integrates the detail with the same citation.
 4. It refuses a request that names another client, and refuses to downgrade a classification.
+5. For a deck or document request it gathers cited content, pulls the Avalere engine from the wiki git (`build_deck.py` / `build_doc.py`), runs it in code execution to fetch the pinned template and render the file, and returns an on-brand `.pptx` / `.docx` with citations as `[src:id]` — never a generic or hand-built file, and with no separate generator skill installed.
 
 ## Not in scope for v1
 
-- **Building the deliverable inside this query skill.** This skill gathers and cites wiki content; it does not itself render PPTX/DOCX. Deliverable generation is the job of the companion Avalere skills (`generate-avalere-pptx`, `generate-avalere-docx`), installed as their own bundles. On Claude.ai they run in code execution with no install step (pure standard library, zipfile + xml.etree); the engine resolves the pinned template from a bundled `assets/` copy or, for the slim PPT bundle, downloads it once from the public repo. Under the local stdio MCP server they are the `generate_deck` / `generate_doc` tools. Either way this skill hands them the cited spec and never improvises an off-brand file.
+- **A generic or hand-built deck/doc.** This skill never renders a deliverable with a generic or built-in tool, and never asks you to install a separate generator skill. Branded PPTX/DOCX comes only from the Avalere engine pulled from the wiki git (`build_deck.py` / `build_doc.py`), run in code execution, which self-fetches the pinned Avalere template. This skill gathers and cites the content and feeds the engine a spec; it never improvises an off-brand file. Under the local stdio MCP variant in `access-skill/`, the same engines are exposed as the `generate_deck` / `generate_doc` tools.
 - Wiki edits. Filing synthesis back is the maintainer's job, not this skill's.
