@@ -82,7 +82,10 @@ When the request is for a PowerPoint, deck, slides, Word document, one-pager, or
    urllib.request.urlretrieve(base + "/generate-avalere-pptx/build_deck.py", "build_deck.py")
    ```
    (or read the file with the GitHub connector's file-contents tool and write it out). Do not write your own renderer.
-3. **Write a spec JSON** whose every factual claim carries a source id. Deck spec: `{title, slides:[{layout, title, subtitle?, bullets?, citations?, notes?}]}`. Doc spec: `{blocks:[{style, text, citations?}]}`. The engine renders citations inline as `[src:id]`. To see the deck's layout names first, run `python3 build_deck.py list-layouts`.
+3. **Write a spec JSON** whose every factual claim carries a source id. The engine renders citations inline as `[src:id]`.
+   - Doc spec: `{blocks:[{style, text, citations?}]}`.
+   - Deck spec: `{title, slides:[{layout, title, citations?, notes?, ...content}]}`. For each slide, choose a layout (`python3 build_deck.py list-layouts`), then inspect its slots with `python3 build_deck.py describe-layout "<layout>"` and fill them. Simple layouts take `subtitle` and `bullets`. Rich layouts (columns, stats panels, sections, splits) take a `placeholders` list, one entry per `idx` from describe-layout: `{"idx": N, "text": "..."}` or `{"idx": N, "paragraphs": ["...", {"text": "...", "level": 1}]}`.
+   - **Make the deck dense, not flat.** The number-one quality failure is an on-brand deck that comes out half-empty. Pick content-rich layouts where the material suits them, fill *every* slot describe-layout lists (no empty columns or stat boxes), give each box a short header plus supporting points, and use enough slides to tell the story. The template supplies the brand; you supply rich, sourced content for every slot, to the standard of a strong hand-made deck.
 4. **Run the engine** in code execution:
    ```
    python3 build_deck.py spec.json --out deck.pptx

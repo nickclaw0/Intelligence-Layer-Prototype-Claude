@@ -18,6 +18,7 @@ placeholders.
 Usage:
     python3 build_deck.py <spec.json> [--template <path>] [--out <path>]
     python3 build_deck.py list-layouts [<template>]
+    python3 build_deck.py describe-layout "<layout name>" [<template>]
 
 Spec JSON shape:
 {
@@ -25,18 +26,30 @@ Spec JSON shape:
   "title": "Deck title",
   "slides": [
     {
-      "layout": "Cover - Pink - Custom",     # exact or fuzzy layout name
+      "layout": "Cover - Pink - Custom",      # exact or fuzzy layout name
       "title": "Velorixa",
-      "subtitle": "Brand strategy",
-      "bullets": ["point one", "point two"], # optional
+      "subtitle": "Brand strategy",           # simple layouts
+      "bullets": ["point one", "point two"],  # simple layouts
       "citations": ["623851f2"],              # raw source ids, rendered as [src:id]
       "notes": "speaker notes"                # optional
+    },
+    {
+      "layout": "3 Headered Columns - White", # rich layout: fill every slot by idx
+      "title": "Three forces",
+      "placeholders": [                       # idx values come from `describe-layout`
+        {"idx": 12, "text": "subheading"},
+        {"idx": 26, "paragraphs": [{"text": "Header", "level": 0},
+                                   {"text": "point", "level": 1}]},
+        {"idx": 30, "paragraphs": ["..."], "citations": ["623851f2"]}
+      ]
     }
   ]
 }
 
-Layout names are read from the template at build time. Use list-layouts to
-print the catalogue.
+Layout names are read from the template at build time. Use list-layouts to print
+the catalogue, and describe-layout to see a layout's fillable slots (idx, role, hint)
+so rich layouts (columns, stats panels, sections, splits) fully populate instead of
+collapsing into one box.
 """
 import sys, os, json, argparse, zipfile, re, tempfile, urllib.request
 import xml.etree.ElementTree as ET
@@ -108,6 +121,8 @@ NOTES_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships
 NOTESMASTER_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster"
 
 DEFAULT_LAYOUT = "Title and Content - White"
+SLIDE_W = 12192000
+SLIDE_H = 6858000
 
 
 def esc(s):
@@ -148,20 +163,29 @@ def pick_layout(lmap, requested):
 
 
 def layout_placeholders(zin, layout_file):
-    """Parse a layout's placeholders -> list of {type, has_type, idx, cy}.
-    The template marks its main content area as a generic (typeless) placeholder."""
+    """Parse a layout's placeholders -> list of {type, has_type, idx, x, y, cx, cy, prompt}.
+    The template marks its main content area as a generic (typeless) placeholder. x/y/cx/cy
+    are the layout geometry (EMU) so callers can tell a left column from a right one; prompt is
+    the layout's own placeholder text, a strong hint for what belongs there."""
     root = ET.fromstring(zin.read("ppt/slideLayouts/" + layout_file))
     phs = []
     for sp in root.iter("{%s}sp" % P):
         ph = sp.find(".//{%s}nvPr/{%s}ph" % (P, P))
         if ph is None:
             continue
-        cy = 0
+        x = y = cx = cy = 0
+        off = sp.find(".//{%s}spPr/{%s}xfrm/{%s}off" % (A, A, A))
         ext = sp.find(".//{%s}spPr/{%s}xfrm/{%s}ext" % (A, A, A))
-        if ext is not None and ext.get("cy"):
-            cy = int(ext.get("cy"))
+        if off is not None:
+            x, y = int(off.get("x", 0)), int(off.get("y", 0))
+        if ext is not None:
+            cx, cy = int(ext.get("cx", 0)), int(ext.get("cy", 0))
+        prompt = ""
+        tx = sp.find(".//{%s}txBody" % P)
+        if tx is not None:
+            prompt = " ".join(t.text for t in tx.iter("{%s}t" % A) if t.text).strip()
         phs.append({"type": ph.get("type", "body"), "has_type": ph.get("type") is not None,
-                    "idx": ph.get("idx"), "cy": cy})
+                    "idx": ph.get("idx"), "x": x, "y": y, "cx": cx, "cy": cy, "prompt": prompt})
     return phs
 
 
@@ -196,11 +220,20 @@ def ph_shape(shape_id, name, ph_type, ph_idx, paragraphs, emit_type=True):
     else:
         ph = '<p:ph type="%s"/>' % (ph_type or "body")
     paras = []
-    for text in paragraphs:
-        if text == "":
-            paras.append('<a:p><a:endParaRPr lang="en-GB"/></a:p>')
+    for para in paragraphs:
+        # a paragraph may be a plain string, or {"text": ..., "level": N} / (text, level) for sub-bullets
+        if isinstance(para, dict):
+            text, level = para.get("text", ""), int(para.get("level", 0) or 0)
+        elif isinstance(para, (list, tuple)):
+            text, level = (para[0] if para else ""), (int(para[1]) if len(para) > 1 else 0)
         else:
-            paras.append('<a:p><a:r><a:rPr lang="en-GB" dirty="0"/><a:t>%s</a:t></a:r></a:p>' % esc(text))
+            text, level = para, 0
+        ppr = ('<a:pPr lvl="%d"/>' % level) if level else ""
+        if text == "":
+            paras.append('<a:p>%s<a:endParaRPr lang="en-GB"/></a:p>' % ppr)
+        else:
+            paras.append('<a:p>%s<a:r><a:rPr lang="en-GB" dirty="0"/><a:t>%s</a:t></a:r></a:p>'
+                         % (ppr, esc(text)))
     if not paras:
         paras.append('<a:p><a:endParaRPr lang="en-GB"/></a:p>')
     return ('<p:sp><p:nvSpPr><p:cNvPr id="%d" name="%s"/>'
@@ -212,26 +245,55 @@ def ph_shape(shape_id, name, ph_type, ph_idx, paragraphs, emit_type=True):
 
 def build_slide_xml(spec, phs):
     title, subtitle, content = pick_bindings(phs)
+    by_idx = {p["idx"]: p for p in phs if p["idx"] is not None}
     title_text = spec.get("title", "")
-    sub_text = spec.get("subtitle")
-    bullets = list(spec.get("bullets", []) or [])
     cites = spec.get("citations", []) or []
     shapes = []
     sid = 2
+    filled = set()  # idx values already filled, so auto-binding never double-fills
 
     if title is not None and title_text:
         shapes.append(ph_shape(sid, "Title %d" % sid, "title", title["idx"], [title_text]))
         sid += 1
 
-    # subtitle: dedicated placeholder if present; else fold into content when no bullets
+    # Rich mode: explicit per-placeholder content. Each entry targets a layout placeholder by
+    # idx (see `describe-layout`) and carries `text` or `paragraphs` (strings, or {text, level}
+    # for sub-bullets). This is what lets columns, stats panels, sections, and splits fully
+    # populate instead of collapsing into one box.
+    for entry in (spec.get("placeholders") or []):
+        idx = entry.get("idx")
+        idx = str(idx) if idx is not None else None
+        ph = by_idx.get(idx)
+        if ph is None:
+            continue
+        paras = entry.get("paragraphs")
+        if paras is None:
+            t = entry.get("text", "")
+            paras = [t] if t != "" else []
+        else:
+            paras = list(paras)
+        if entry.get("citations"):
+            paras = paras + ["Sources:" + cite_suffix(entry["citations"])]
+        if not paras:
+            continue
+        shapes.append(ph_shape(sid, "Content Placeholder %d" % sid, ph["type"], ph["idx"],
+                               paras, emit_type=ph["has_type"]))
+        filled.add(idx)
+        sid += 1
+
+    # Simple mode (backward compatible): subtitle + bullets auto-bound to the picked placeholders,
+    # only where the rich mode has not already filled that placeholder.
+    sub_text = spec.get("subtitle")
+    bullets = list(spec.get("bullets", []) or [])
     sub_into_content = False
     if sub_text:
-        if subtitle is not None:
+        if subtitle is not None and subtitle["idx"] not in filled:
             stext = sub_text + (cite_suffix(cites) if not bullets else "")
             shapes.append(ph_shape(sid, "Text Placeholder %d" % sid, subtitle["type"],
                                    subtitle["idx"], [stext], emit_type=subtitle["has_type"]))
+            filled.add(subtitle["idx"])
             sid += 1
-        elif content is not None and not bullets:
+        elif content is not None and not bullets and content["idx"] not in filled:
             sub_into_content = True
 
     paras = []
@@ -245,7 +307,7 @@ def build_slide_xml(spec, phs):
             if cites:
                 paras.append("Sources:" + cite_suffix(cites))
 
-    if content is not None and paras:
+    if content is not None and paras and content["idx"] not in filled:
         shapes.append(ph_shape(sid, "Content Placeholder %d" % sid, content["type"],
                                content["idx"], paras, emit_type=content["has_type"]))
         sid += 1
@@ -393,7 +455,46 @@ def build(spec, template_path, out_override=None):
     return out, len(new_slides)
 
 
+def describe_layout(template, name):
+    """Print every fillable placeholder on a layout: its idx, role, position, and the layout's
+    own prompt text. The model reads this, then targets each idx via the slide's 'placeholders'
+    list so rich layouts (columns, stats panels, sections, splits) fully populate."""
+    tpl = _ensure_template(template)
+    with zipfile.ZipFile(tpl) as z:
+        lf = pick_layout(layout_files(z), name)
+        phs = layout_placeholders(z, lf)
+
+    def pos(p):
+        if not p["cx"]:
+            return ""
+        cxmid, cymid = p["x"] + p["cx"] // 2, p["y"] + p["cy"] // 2
+        col = "left" if cxmid < SLIDE_W / 3 else ("right" if cxmid > 2 * SLIDE_W / 3 else "center")
+        row = "top" if cymid < SLIDE_H / 3 else ("bottom" if cymid > 2 * SLIDE_H / 3 else "middle")
+        return "%s-%s" % (row, col)
+
+    chrome = ("ftr", "sldNum", "dt", "pic")
+    print("Layout: %s  ->  %s" % (name, lf))
+    print("Fill the title with the slide 'title' field. Fill every other slot via the slide's")
+    print("'placeholders': [{\"idx\": N, \"paragraphs\": [...]}] — one entry per idx below.")
+    print("Slots are listed in document order, which is normally left-to-right then top-to-bottom.")
+    print("The prompt text is the strongest hint for what belongs in each slot (e.g. '##%' = a stat figure).\n")
+    for p in phs:
+        if p["type"] in ("title", "ctrTitle"):
+            print("  (title)  role=TITLE     -> use the slide 'title' field")
+            continue
+        if p["type"] in chrome:
+            continue  # footers / slide numbers / dates are template chrome, do not fill
+        role = ("subtitle" if p["type"] == "subTitle"
+                else "content" if not p["has_type"] else p["type"])
+        hint = ("  hint=%r" % p["prompt"][:52]) if p["prompt"] else ""
+        loc = ("  pos=%s" % pos(p)) if pos(p) else ""
+        print("  idx=%-4s role=%-8s%s%s" % (p["idx"], role, loc, hint))
+
+
 def main():
+    if len(sys.argv) >= 3 and sys.argv[1] == "describe-layout":
+        describe_layout(sys.argv[3] if len(sys.argv) > 3 else DEFAULT_TEMPLATE, sys.argv[2])
+        return
     if len(sys.argv) >= 2 and sys.argv[1] == "list-layouts":
         tpl = _ensure_template(sys.argv[2] if len(sys.argv) > 2 else DEFAULT_TEMPLATE)
         with zipfile.ZipFile(tpl) as z:
