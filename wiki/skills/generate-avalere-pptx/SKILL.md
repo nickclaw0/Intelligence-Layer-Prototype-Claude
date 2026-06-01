@@ -78,8 +78,9 @@ Either way the output is on-brand because the bytes are the same pinned template
 
 ## Make slides rich, not sparse
 
-The most common quality failure is an on-brand deck that is half-empty: a title and three bullets sitting on a layout built to hold far more. The template gives the brand; you supply rich, well-structured content for every slot. So:
+The most common quality failure is an on-brand deck that is half-empty: a title and three bullets sitting on a layout built to hold far more. The template gives the brand; you supply rich, well-structured content for every slot. Compose with the same care you would a freehand deck, then express it through the template. So:
 
+- **Be specific, not vague.** Pull the concrete detail from the sources: actual names and roles, exact phrases, real figures, the named decision and who made it. "Discussed prohibited claims" is weak; "Prohibited: cure, guaranteed sleep, next-day effect, 'reset your brain'" is strong. Specific content is what makes a deck feel authoritative, and it is the single biggest difference between a thin deck and a great one.
 - **Choose layouts that match the content's shape.** Reach for the content-rich layouts (2/3/4 Headered Columns, RHS/Bottom Stats Panels, 6 Text Sections, Half/Third/Aframe Splits, Timeline, Case Study, Agenda Expanded) when the material suits them, rather than defaulting every slide to plain Title and Content.
 - **Fill every slot.** Run `describe-layout` for the chosen layout and write one `placeholders` entry per `idx` it lists. Do not leave columns, sections, or stat figures empty. An empty column is the tell-tale sign of a thin deck.
 - **Use structure inside a slot.** Give each box a short header paragraph (`level` 0) and a few supporting points (`level` 1) rather than one flat line.
