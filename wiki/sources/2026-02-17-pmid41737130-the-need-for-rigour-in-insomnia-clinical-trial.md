@@ -1,29 +1,36 @@
 ---
-title: Pmid41737130 The Need For Rigour In Insomnia Clinical Trial
+title: "The need for rigour in insomnia clinical trial research"
 type: source
 client: velorixa
 therapeutic_area: insomnia
 sensitivity: client-confidential
 sources:
-  - id: 0972f56bfaf88ba6fa20ef1dfbe4b263bce6d3ca109de7e3455eacc09284c499
-    cited_for: "TODO: what this source is the authority for"
+  - id: 0972f56b
+    cited_for: "Editorial on methodological rigour in insomnia clinical trials"
 source_type: research
 source_date: 2026-02-17
 related:
-  - entities/velorixa
-  - projects/launch-prep
-status: needs-synthesis
-last_updated: 2026-05-29
-last_ingest_event: log:2026-05-29-lint
+  - concepts/insomnia-evidence-base
+  - concepts/claims-guardrails
+status: active
+last_updated: 2026-06-01
+last_ingest_event: log:2026-06-01-1
+see_raw_for:
+  - id: 0972f56b
+    notes: "Full PDF in raw. PubMed (PMID 41737130, Sleep Med X, 2026) shows no abstract for this record, so only the title-level subject is summarised here; the argument and any recommendations live in the full PDF, which the bootstrap environment cannot extract."
 ---
 
-Lint-created stub for an ingested raw file that has no source page yet. The maintainer agent enriches this with a summary, key extracts, and cross-links during synthesis. Until then it exists so the source is catalogued and linkable.
+Research source on how insomnia trials should be designed and judged. Conceptually relevant to the brand's evidence standards and claims discipline, even though the abstract itself is not machine-readable.
 
 ## Summary
 
-TODO: synthesise from raw. Original file: `14_PMID_41737130_PMC12926634_The need for rigour in insomnia clinical trial research.pdf` ([src:0972f56b]).
+This record is [an article on the need for rigour in insomnia clinical trial research]^[src:0972f56b]. PubMed carries no abstract for it, so beyond the subject stated in the title there is nothing machine-readable to summarise, and the actual argument and any recommendations remain in the full PDF in raw. Worth keeping in view because it bears on how confidently any efficacy claim drawn from the trial literature can be made, which is exactly the discipline the claims-guardrails work is meant to enforce. The full text should be read before this source is cited for any specific methodological position.
+
+## Key extracts
+
+- [The article addresses the need for rigour in insomnia clinical trial research]^[src:0972f56b].
 
 ## Where this surfaces
 
-- [[entities/velorixa]]
-- [[projects/launch-prep]]
+- [[concepts/insomnia-evidence-base]]
+- [[concepts/claims-guardrails]]

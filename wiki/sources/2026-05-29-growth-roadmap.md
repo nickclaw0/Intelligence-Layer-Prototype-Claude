@@ -1,29 +1,40 @@
 ---
-title: Growth Roadmap
+title: Velorixa Growth Roadmap (Deck 5)
 type: source
 client: velorixa
 therapeutic_area: insomnia
 sensitivity: client-confidential
 sources:
-  - id: 0b3aa09184f45731a0131208354c6f631943af987e36649e60756928b913c6a6
-    cited_for: "TODO: what this source is the authority for"
+  - id: 0b3aa091
+    cited_for: "Growth source logic, flywheel, expansion map, three-horizon roadmap, governance"
 source_type: strategy-doc
 source_date: 2026-05-29
 related:
-  - entities/velorixa
-  - projects/launch-prep
-status: needs-synthesis
-last_updated: 2026-05-29
-last_ingest_event: log:2026-05-29-lint
+  - concepts/growth-roadmap
+  - concepts/restored-sleep-confidence
+status: active
+last_updated: 2026-06-01
+last_ingest_event: log:2026-06-01-1
+see_raw_for:
+  - id: 0b3aa091
+    notes: "Full deck, growth-lever rankings, and the stakeholder growth loops."
 ---
 
-Lint-created stub for an ingested raw file that has no source page yet. The maintainer agent enriches this with a summary, key extracts, and cross-links during synthesis. Until then it exists so the source is catalogued and linkable.
+Source page for the Growth Roadmap deck, a view of how Velorixa scales from a launch brand to a durable sleep franchise. Confidential internal draft for the prototype.
 
 ## Summary
 
-TODO: synthesise from raw. Original file: `Velorixa_05_Growth_Roadmap.pptx` ([src:0b3aa091]).
+The growth thesis is that [sustainable growth comes from owning the routines around treatment, not just awareness of the product, so Velorixa can become the organizing brand for medical sleep confidence if it builds evidence, experience, and culture in sequence]^[src:0b3aa091]. After adoption the brand grows by [increasing appropriate identification, improving start confidence, and reinforcing persistence: find, convert, retain]^[src:0b3aa091].
+
+## Key extracts
+
+- [Growth flywheel: clinical proof, HCP routine, patient stories, support data, cultural salience, each loop making the next cheaper and more credible]^[src:0b3aa091].
+- [Expansion is bounded: protect core insomnia, extend through comorbidity contexts, use wellness sleep carefully because of trivialization risk, treat sleep performance as later not launch]^[src:0b3aa091].
+- [Three-horizon roadmap: year one launch trust, year two scale routines, year three franchise, year four-plus category leadership]^[src:0b3aa091].
+- [Narrative evolution: now make sleep feel possible again, next make treatment easier to navigate, later make sleep confidence a category standard]^[src:0b3aa091].
+- [Governance keeps positioning consistent through quarterly asset audits and equity tracking]^[src:0b3aa091].
 
 ## Where this surfaces
 
-- [[entities/velorixa]]
-- [[projects/launch-prep]]
+- [[concepts/growth-roadmap]]
+- [[concepts/restored-sleep-confidence]]

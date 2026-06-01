@@ -1,29 +1,35 @@
 ---
-title: Pmid41995686 Valeriana Species And Insomnia Multi Organ
+title: "Valeriana species and insomnia: multi-organ mechanisms and translational perspectives"
 type: source
 client: velorixa
 therapeutic_area: insomnia
 sensitivity: client-confidential
 sources:
-  - id: 3cc9f6f8c71e9096a774fd52760ad5d745c681c394a1beb21ff47fe4a32875cf
-    cited_for: "TODO: what this source is the authority for"
+  - id: 3cc9f6f8
+    cited_for: "Review of Valeriana species for insomnia: mechanisms, multi-organ effects, and safety"
 source_type: research
 source_date: 2026-05-29
 related:
-  - entities/velorixa
-  - projects/launch-prep
-status: needs-synthesis
-last_updated: 2026-05-29
-last_ingest_event: log:2026-05-29-lint
+  - concepts/insomnia-evidence-base
+status: active
+last_updated: 2026-06-01
+last_ingest_event: log:2026-06-01-1
+see_raw_for:
+  - id: 3cc9f6f8
+    notes: "Full PDF in raw. Summary drawn from the published abstract (PMID 41995686, Pharmaceutical Biology, 2026), read via PubMed because the bootstrap environment has no PDF text extractor. Manifest source_date is an ingest-date fallback; the filename date follows the manifest path."
 ---
 
-Lint-created stub for an ingested raw file that has no source page yet. The maintainer agent enriches this with a summary, key extracts, and cross-links during synthesis. Until then it exists so the source is catalogued and linkable.
+Research source reviewing a herbal sleep aid. Category-adjacent rather than core to the prescription brand, but useful for understanding the over-the-counter landscape Velorixa sits beside.
 
 ## Summary
 
-TODO: synthesise from raw. Original file: `08_PMID_41995686_PMC13094296_Valeriana species and insomnia multi-organ mechanisms and translational.pdf` ([src:3cc9f6f8]).
+A review of the evidence on Valeriana species as a treatment for insomnia. [It frames insomnia as a common disorder where conventional treatments, including cognitive behavioural therapy and pharmacological agents, are often limited by side effects and insufficient long-term safety data, and evaluates Valeriana officinalis and Valeriana jatamansi for their sedative and neuroprotective properties]^[src:3cc9f6f8]. Drawing on a systematic search of PubMed and Web of Science, [the authors report that Valeriana species modulate neurotransmission, mitigate oxidative stress, and influence hepatic and gastrointestinal functions, with preclinical studies supporting sedative and neuroprotective effects while clinical outcomes vary with formulation, dosage, and individual response]^[src:3cc9f6f8]. [Overall safety profiles are described as favourable though inconsistencies remain, and the review concludes Valeriana represents a promising multi-target strategy for insomnia]^[src:3cc9f6f8]. The recurring caveat that clinical results vary by formulation is the part worth carrying into competitive context.
+
+## Key extracts
+
+- [Valeriana species modulate neurotransmission and reduce oxidative stress, with favourable but inconsistent safety profiles]^[src:3cc9f6f8].
+- [Clinical outcomes vary with formulation, dosage, and individual response]^[src:3cc9f6f8].
 
 ## Where this surfaces
 
-- [[entities/velorixa]]
-- [[projects/launch-prep]]
+- [[concepts/insomnia-evidence-base]]

@@ -1,29 +1,40 @@
 ---
-title: Experience System
+title: Velorixa Experience System (Deck 4)
 type: source
 client: velorixa
 therapeutic_area: insomnia
 sensitivity: client-confidential
 sources:
-  - id: 5023bbd7a015bef587d9d62b136e4402816f1abd4e748e1a69e785617dac7f9c
-    cited_for: "TODO: what this source is the authority for"
+  - id: 5023bbd7
+    cited_for: "Experience operating model, onboarding journey, asset map, build roadmap"
 source_type: strategy-doc
 source_date: 2026-05-29
 related:
-  - entities/velorixa
-  - projects/launch-prep
-status: needs-synthesis
-last_updated: 2026-05-29
-last_ingest_event: log:2026-05-29-lint
+  - concepts/experience-system
+  - concepts/restored-sleep-confidence
+status: active
+last_updated: 2026-06-01
+last_ingest_event: log:2026-06-01-1
+see_raw_for:
+  - id: 5023bbd7
+    notes: "Full deck, friction-priority scores, and the experience scorecard."
 ---
 
-Lint-created stub for an ingested raw file that has no source page yet. The maintainer agent enriches this with a summary, key extracts, and cross-links during synthesis. Until then it exists so the source is catalogued and linkable.
+Source page for the Experience System deck, a branded experience model spanning education, initiation, support, and adherence. Confidential internal draft for the prototype.
 
 ## Summary
 
-TODO: synthesise from raw. Original file: `Velorixa_04_Experience_System.pptx` ([src:5023bbd7]).
+The thesis is to [make treatment feel navigable before it feels promotional, reducing cognitive load at every step for tired, skeptical, overloaded patients]^[src:5023bbd7]. The design rule for low-energy users is [less friction, more follow-through: one decision per screen, teach only what matters now, normalize questions and starts]^[src:5023bbd7].
+
+## Key extracts
+
+- [Operating model layers: orient, prepare, start, sustain, reflect]^[src:5023bbd7].
+- [Patient onboarding sequence across the first 45 days, from a day-0 start card to a day-45 review prompt]^[src:5023bbd7].
+- [Asset map gives each asset a clear job: condition hub, doctor guide, start kit, progress tracker]^[src:5023bbd7].
+- [Build roadmap: core tools in 0-60 days, CRM spine 60-120, HCP enablement 120-180, then optimization]^[src:5023bbd7].
+- [Experience scorecard signals the brand is making treatment easier to navigate]^[src:5023bbd7].
 
 ## Where this surfaces
 
-- [[entities/velorixa]]
-- [[projects/launch-prep]]
+- [[concepts/experience-system]]
+- [[concepts/restored-sleep-confidence]]
