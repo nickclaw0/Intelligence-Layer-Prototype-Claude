@@ -23,17 +23,24 @@ Spec JSON shape:
 {
   "output": "doc.docx",
   "blocks": [
-    {"style": "Title",      "text": "Velorixa"},
-    {"style": "Subtitle",   "text": "Brand strategy kickoff recap"},
-    {"style": "Heading 1",  "text": "Brand ambition"},
-    {"style": "Normal",     "text": "The core pressure is clarity.", "citations": ["623851f2"]},
-    {"style": "List Bullet", "text": "Four phases ...", "citations": ["623851f2"]}
+    {"style": "Title",       "text": "Velorixa"},
+    {"style": "Subtitle",    "text": "Brand strategy kickoff recap"},
+    {"style": "Heading 1",   "text": "Brand ambition"},
+    {"style": "Normal",      "text": "The core pressure is clarity.", "citations": ["623851f2"]},
+    {"style": "List Bullet",  "text": "Top-level point", "citations": ["623851f2"]},
+    {"style": "List Bullet 2", "text": "Nested point"},          # nesting via List Bullet 2..5
+    {"type": "table", "style": "1 by 1 Grey with Orange Rule",   # branded table
+     "header": true,
+     "rows": [["Phase", "Output"], ["Foundation", "Positioning"]]}
   ],
   "clear_template_body": true
 }
 
-Style names are matched dash- and case-insensitively against the template's own
-named styles (use list-styles to print them). Citations render inline as [src:id].
+A block is a styled paragraph by default. Set "type": "table" for a branded table
+(rows = list of row-lists; "header": true bolds the first row). Nest bullets/numbers
+with the List Bullet 2..5 / List Number 2..5 styles. Style names are matched dash-
+and case-insensitively against the template's own named styles (use list-styles to
+print them). Citations render inline as [src:id].
 """
 import sys, os, json, argparse, zipfile, re, tempfile, urllib.request
 import xml.etree.ElementTree as ET
@@ -148,6 +155,32 @@ def paragraph_xml(style_id, text):
             % (esc(style_id), esc(text)))
 
 
+def cell_xml(text, style_id):
+    return ('<w:tc><w:tcPr/><w:p><w:pPr><w:pStyle w:val="%s"/></w:pPr>'
+            '<w:r><w:t xml:space="preserve">%s</w:t></w:r></w:p></w:tc>'
+            % (esc(style_id), esc(text)))
+
+
+def table_xml(style_id, rows, header_style_id=None, body_style_id="Normal"):
+    """Render a w:tbl in the template's named table style. rows is a list of rows,
+    each a list of cell strings. The first row is the header when header_style_id is set.
+    A trailing empty paragraph is emitted so the table is never adjacent to <w:sectPr>
+    or another table, which Word requires."""
+    rows = [r for r in (rows or [])]
+    if not rows:
+        return ""
+    ncols = max(len(r) for r in rows)
+    grid = "".join('<w:gridCol w:w="%d"/>' % (9360 // ncols) for _ in range(ncols))
+    trs = []
+    for i, row in enumerate(rows):
+        cells = list(row) + [""] * (ncols - len(row))
+        sid = header_style_id if (i == 0 and header_style_id) else body_style_id
+        trs.append("<w:tr>%s</w:tr>" % "".join(cell_xml(str(c), sid) for c in cells))
+    return ('<w:tbl><w:tblPr><w:tblStyle w:val="%s"/><w:tblW w:w="0" w:type="auto"/></w:tblPr>'
+            '<w:tblGrid>%s</w:tblGrid>%s</w:tbl><w:p/>'
+            % (esc(style_id), grid, "".join(trs)))
+
+
 def build(spec, template_path, out_override=None):
     template_path = _ensure_template(template_path)
     zin = zipfile.ZipFile(template_path)
@@ -166,9 +199,17 @@ def build(spec, template_path, out_override=None):
 
     paras = []
     for block in spec.get("blocks", []):
-        style_id = resolve_style(by_name, by_id, block.get("style", "Normal"))
-        text = block.get("text", "") + cite_suffix(block.get("citations", []) or [])
-        paras.append(paragraph_xml(style_id, text))
+        if block.get("type") == "table":
+            tstyle = resolve_style(by_name, by_id,
+                                   block.get("style", "1 by 1 Grey with Orange Rule"), default="TableGrid")
+            hstyle = (resolve_style(by_name, by_id, "Body Bold", default="Normal")
+                      if block.get("header") else None)
+            bstyle = resolve_style(by_name, by_id, block.get("cell_style", "Normal"))
+            paras.append(table_xml(tstyle, block.get("rows", []), hstyle, bstyle))
+        else:
+            style_id = resolve_style(by_name, by_id, block.get("style", "Normal"))
+            text = block.get("text", "") + cite_suffix(block.get("citations", []) or [])
+            paras.append(paragraph_xml(style_id, text))
     new_body = "".join(paras)
 
     if not spec.get("clear_template_body", True):

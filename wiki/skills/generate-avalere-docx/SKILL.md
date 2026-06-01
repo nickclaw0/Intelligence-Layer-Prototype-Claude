@@ -38,7 +38,11 @@ The engine resolves the pinned template in this order: a co-located `assets/Aval
 
 1. Read the relevant wiki pages and gather content with its source IDs. Every factual claim must trace to a source.
 2. Structure the document as a list of blocks, each mapped to a named style. Common styles: `Title` (25pt, Inter), `Subtitle` (Arial 11pt), `Heading 1` (20pt, Inter), `Heading 2` to `Heading 5` (Arial), `Normal` (Inter 10pt body), `List Bullet` 1 to 5, `List Number` 1 to 5, `Quote`, `Intense Quote`, `Body Bold`. Use the named styles rather than manual formatting.
-3. Write a spec JSON (see `sample_spec.json`) with a `blocks` list. Each block has a `style`, `text`, and optional `citations` (raw source IDs). Style matching is dash and case insensitive.
+3. Write a spec JSON (see `sample_spec.json`) with a `blocks` list. Style matching is dash and case insensitive.
+   - **Paragraph block** (default): `{"style": "<named style>", "text": "...", "citations": ["src-id"]}`.
+   - **Nested lists**: use the `List Bullet 2`..`List Bullet 5` (or `List Number 2`..`5`) styles to indent.
+   - **Table block** (branded): `{"type": "table", "style": "1 by 1 Grey with Orange Rule", "header": true, "rows": [["Phase", "Output"], ["Foundation", "Positioning"]]}`. `header: true` bolds the first row. Use real tables for anything comparative or tabular rather than flattening it into bullets.
+   - **Make briefs substantive**: lead with Title/Subtitle, structure with Headings, use tables for comparisons and lists for points, and cite every claim. A one-line document is a thin document.
 4. Run the engine:
    ```
    python3 build_doc.py <spec.json> --out <output.docx>
